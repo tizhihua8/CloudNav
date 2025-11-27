@@ -97,7 +97,7 @@
     *   **KV Namespace**: 选择刚才创建的 `CLOUDNAV_DB`。
 6. 点击 **Save**。
 
-### 第三步：设置访问密码
+### 第四步：设置访问密码
 1. 在 Pages 项目页面 -> **Settings** -> **Environment variables**。
 2. 点击 **Add variables**，添加以下变量：
     *   **Variable name**: `PASSWORD`
@@ -109,6 +109,13 @@
 2. 点击顶部 **Deployments** 标签。
 3. 找到最新的一次部署记录，点击右侧的三个点 **...** -> **Retry deployment**。
 4. 等待部署成功（状态变为 Success），点击生成的 `*.pages.dev` 链接即可访问。
+
+### 第六步：绑定自定义域名 (可选)
+1. 在 Cloudflare Pages 项目页面，点击顶部的 **Custom domains** 标签。
+2. 点击 **Set up a custom domain**。
+3. 输入您拥有的域名（例如 `nav.example.com`），点击 **Continue**。
+4. 按照提示完成 DNS 解析配置（Cloudflare 会自动添加 CNAME 记录）。
+5. 等待几分钟，即可通过您的自定义域名访问云航，享受更专业的访问体验。
 
 ---
 
