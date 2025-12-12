@@ -286,7 +286,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const extPopupJs = `const CONFIG = {
   apiBase: "${domain}",
-  password: "${password}"
+  password: "${password}",
+  navTitle: "${localSiteSettings.navTitle || 'CloudNav'}"
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -358,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Auto-select existing category
             if (existing.categoryId) catSelect.value = existing.categoryId;
         } else {
-            saveBtn.textContent = "保存到 CloudNav";
+            saveBtn.textContent = "保存到 " + CONFIG.navTitle;
         }
 
         saveBtn.disabled = false;
@@ -442,22 +443,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Download Helper for Icon
   const handleDownloadIcon = async () => {
-     if (!localSiteSettings.favicon) return;
+     const iconUrl = localSiteSettings.favicon;
+     if (!iconUrl) return;
+
      try {
-         // Attempt to fetch and download
-         const response = await fetch(localSiteSettings.favicon);
-         const blob = await response.blob();
-         const url = window.URL.createObjectURL(blob);
-         const a = document.createElement('a');
-         a.href = url;
-         a.download = "icon.png";
-         document.body.appendChild(a);
-         a.click();
-         document.body.removeChild(a);
-         window.URL.revokeObjectURL(url);
+         // Create an image to render the data (handles both URL and Base64)
+         const img = new Image();
+         img.crossOrigin = "anonymous"; // Try to handle CORS if it's a URL
+         img.src = iconUrl;
+
+         await new Promise((resolve, reject) => {
+             img.onload = resolve;
+             img.onerror = reject;
+         });
+
+         // Create canvas to convert to PNG
+         const canvas = document.createElement('canvas');
+         canvas.width = 128;
+         canvas.height = 128;
+         const ctx = canvas.getContext('2d');
+         if (!ctx) throw new Error('Canvas error');
+
+         // Draw image
+         ctx.drawImage(img, 0, 0, 128, 128);
+
+         // Convert to Blob
+         canvas.toBlob((blob) => {
+             if (!blob) {
+                 alert("生成图片失败");
+                 return;
+             }
+             const url = window.URL.createObjectURL(blob);
+             const a = document.createElement('a');
+             a.href = url;
+             a.download = "icon.png";
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+             window.URL.revokeObjectURL(url);
+         }, 'image/png');
+
      } catch (e) {
-         // Fallback for CORS issues
-         alert("由于浏览器安全限制，无法自动下载。\n\n请右键点击下方的图片，选择 '图片另存为...'，并将其命名为 'icon.png' 保存。");
+         console.error(e);
+         // Fallback for CORS issues where Canvas becomes tainted or load fails
+         alert("自动转换 PNG 失败 (可能是跨域限制)。\n\n请尝试右键点击下方的预览图片，选择 '图片另存为...' 保存。");
      }
   };
 
