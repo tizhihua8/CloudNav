@@ -746,8 +746,8 @@ function App() {
                     <CloudCog size={14} />
                     <span>备份</span>
                 </button>
-                <button 
-                    onClick={() => setIsSettingsModalOpen(true)}
+                <button
+                    onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsSettingsModalOpen(true); }}
                     className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
                     title="AI 设置"
                 >
