@@ -477,10 +477,10 @@ function App() {
   const pinnedLinks = useMemo(() => {
       // 当选择特定分类时，只显示该分类下的置顶链接
       if (activeCategory !== 'all') {
-          return links.filter(l => l.pinned && l.categoryId === activeCategory && !isCategoryLocked(l.categoryId));
+          return links.filter(l => l.pinned === true && l.categoryId === activeCategory && !isCategoryLocked(l.categoryId));
       }
       // 全部链接时显示所有置顶链接
-      return links.filter(l => l.pinned && !isCategoryLocked(l.categoryId));
+      return links.filter(l => l.pinned === true && !isCategoryLocked(l.categoryId));
   }, [links, categories, unlockedCategoryIds, activeCategory]);
 
   const searchResults = useMemo(() => {
@@ -827,7 +827,7 @@ function App() {
                 {/* Settings Gear (Visible only for External) */}
                 {searchMode === 'external' && (
                     <button
-                        onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsSearchSettingsOpen(true); }}
+                        onClick={() => setIsSearchSettingsOpen(true)}
                         className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors animate-in fade-in slide-in-from-left-2 duration-200"
                         title="管理搜索引擎"
                     >
@@ -837,23 +837,35 @@ function App() {
 
                 {/* Search Input */}
                 <form onSubmit={handleSearchSubmit} className="flex-1 relative flex items-center group">
+                    {searchMode === 'external' && (
+                        <button
+                            type="button"
+                            onClick={() => setIsSearchSettingsOpen(true)}
+                            className="absolute left-3 z-10 w-8 h-8 rounded-full bg-white dark:bg-slate-700 shadow-md border border-slate-200 dark:border-slate-600 hover:scale-105 transition-transform flex items-center justify-center overflow-hidden"
+                            title="切换搜索引擎"
+                        >
+                            {activeExternalEngine?.icon?.startsWith('http') ? (
+                                <img src={activeExternalEngine.icon} className="w-6 h-6 rounded-full object-cover" />
+                            ) : (
+                                <Search size={16} className="text-slate-600 dark:text-slate-400" />
+                            )}
+                        </button>
+                    )}
                     <input
                         ref={searchInputRef}
                         type="text"
                         placeholder={searchMode === 'local' ? "搜索书签..." : `在 ${activeExternalEngine?.name} 搜索...`}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-700 border border-transparent hover:border-slate-200 dark:hover:border-slate-600 rounded-full text-sm dark:text-white placeholder-slate-400 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:ring-2 focus:ring-blue-500/50"
+                        className={`w-full border border-transparent hover:border-slate-200 dark:hover:border-slate-600 rounded-full text-sm dark:text-white placeholder-slate-400 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:ring-2 focus:ring-blue-500/50 ${
+                            searchMode === 'external' ? 'pl-12 pr-16 py-2 bg-slate-100 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-700' : 'pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-700'
+                        }`}
                     />
-                    <div className="absolute left-3 text-slate-400 pointer-events-none flex items-center gap-2">
-                        {searchMode === 'local' ? (
+                    {searchMode === 'local' && (
+                        <div className="absolute left-3 text-slate-400 pointer-events-none">
                             <Search size={16} />
-                        ) : activeExternalEngine?.icon?.startsWith('http') ? (
-                            <img src={activeExternalEngine.icon} className="w-4 h-4 rounded-full object-cover" />
-                        ) : (
-                            <Search size={16} />
-                        )}
-                    </div>
+                        </div>
+                    )}
                     
                     {/* Visual Indicator for Search */}
                     {searchQuery && (
@@ -927,8 +939,8 @@ function App() {
                 if (activeCategory !== 'all' && activeCategory !== cat.id) return null;
 
                 let catLinks = searchResults.filter(l => l.categoryId === cat.id);
-                const catPinnedLinks = catLinks.filter(l => l.pinned);
-                const catOtherLinks = catLinks.filter(l => !l.pinned);
+                const catPinnedLinks = catLinks.filter(l => l.pinned === true);
+                const catOtherLinks = catLinks.filter(l => l.pinned !== true);
                 const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
 
                 // Logic Fix: If External Search, do NOT hide categories based on links
