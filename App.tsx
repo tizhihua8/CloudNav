@@ -475,8 +475,13 @@ function App() {
   };
 
   const pinnedLinks = useMemo(() => {
+      // 当选择特定分类时，只显示该分类下的置顶链接
+      if (activeCategory !== 'all') {
+          return links.filter(l => l.pinned && l.categoryId === activeCategory && !isCategoryLocked(l.categoryId));
+      }
+      // 全部链接时显示所有置顶链接
       return links.filter(l => l.pinned && !isCategoryLocked(l.categoryId));
-  }, [links, categories, unlockedCategoryIds]);
+  }, [links, categories, unlockedCategoryIds, activeCategory]);
 
   const searchResults = useMemo(() => {
     // Only filter locally if mode is 'local'
@@ -902,7 +907,7 @@ function App() {
         </header>
 
         <div className="p-4 lg:p-8 space-y-8">
-            
+
             {pinnedLinks.length > 0 && !searchQuery && (
                 <section>
                     <div className="flex items-center gap-2 mb-4">
@@ -918,15 +923,18 @@ function App() {
             )}
 
             {categories.map(cat => {
+                // 当选择特定分类时，只显示该分类；否则显示所有分类
+                if (activeCategory !== 'all' && activeCategory !== cat.id) return null;
+
                 let catLinks = searchResults.filter(l => l.categoryId === cat.id);
                 const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
-                
+
                 // Logic Fix: If External Search, do NOT hide categories based on links
                 // Because external search doesn't filter links.
                 // However, the user probably wants to see the links grid even when typing for external search
-                // Current logic: if search query exists AND local search -> filter. 
+                // Current logic: if search query exists AND local search -> filter.
                 // If search query exists AND external search -> show all (searchResults returns all).
-                
+
                 if (searchQuery && searchMode === 'local' && catLinks.length === 0) return null;
 
                 return (
