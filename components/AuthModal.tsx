@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
-import { Lock, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, ArrowRight, Loader2, X } from 'lucide-react';
+
+interface AuthModalProps {
+  isOpen: boolean;
+  onLogin: (password: string) => Promise<boolean>;
+}
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,13 +16,26 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        setPassword('');
+        setError('');
+      }
+    };
+
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    
+
     const success = await onLogin(password);
     if (!success) {
       setError('密码错误或无法连接服务器');
@@ -25,9 +43,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLogin }) => {
     setIsLoading(false);
   };
 
+  const handleClose = () => {
+    setPassword('');
+    setError('');
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 p-8">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md" onClick={handleClose}>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 p-8 relative" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+        >
+          <X size={20} />
+        </button>
         <div className="flex flex-col items-center mb-6">
           <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 text-blue-600 dark:text-blue-400">
             <Lock size={32} />

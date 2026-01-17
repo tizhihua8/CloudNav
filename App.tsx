@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  Search, Plus, Upload, Moon, Sun, Menu, 
+import {
+  Search, Plus, Upload, Moon, Sun, Menu,
   Trash2, Edit2, Loader2, Cloud, CheckCircle2, AlertCircle,
   Pin, Settings, Lock, CloudCog, Github, GitFork, MoreVertical,
-  QrCode, Copy, LayoutGrid, List, Check, ExternalLink, ArrowRight
+  QrCode, Copy, LayoutGrid, List, Check, ExternalLink, ArrowRight, LogOut
 } from 'lucide-react';
 import { 
     LinkItem, Category, DEFAULT_CATEGORIES, INITIAL_LINKS, 
@@ -821,8 +821,8 @@ function App() {
 
                 {/* Settings Gear (Visible only for External) */}
                 {searchMode === 'external' && (
-                    <button 
-                        onClick={() => setIsSearchSettingsOpen(true)}
+                    <button
+                        onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsSearchSettingsOpen(true); }}
                         className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors animate-in fade-in slide-in-from-left-2 duration-200"
                         title="管理搜索引擎"
                     >
@@ -884,7 +884,7 @@ function App() {
 
             {authToken ? (
                 <button onClick={handleLogout} className="hidden sm:flex items-center gap-2 bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs font-medium">
-                    <Cloud size={14} /> 退出
+                    <LogOut size={14} /> 退出
                 </button>
             ) : (
                 <button onClick={() => setIsAuthOpen(true)} className="hidden sm:flex items-center gap-2 bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-full text-xs font-medium">
