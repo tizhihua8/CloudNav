@@ -4,14 +4,10 @@ import { Lock, ArrowRight, Loader2, X } from 'lucide-react';
 interface AuthModalProps {
   isOpen: boolean;
   onLogin: (password: string) => Promise<boolean>;
+  onClose: () => void;
 }
 
-interface AuthModalProps {
-  isOpen: boolean;
-  onLogin: (password: string) => Promise<boolean>;
-}
-
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLogin }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLogin, onClose }) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,8 +16,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLogin }) => {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        setPassword('');
-        setError('');
+        handleClose();
       }
     };
 
@@ -46,6 +41,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLogin }) => {
   const handleClose = () => {
     setPassword('');
     setError('');
+    onClose();
   };
 
   return (
