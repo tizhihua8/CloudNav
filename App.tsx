@@ -106,7 +106,6 @@ function App() {
   // Drag and Drop Sort State
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
   const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null);
-  const [dragDirection, setDragDirection] = useState<'up' | 'down' | null>(null);
 
   const [qrCodeLink, setQrCodeLink] = useState<LinkItem | null>(null);
 
@@ -305,12 +304,6 @@ function App() {
       setDraggedCategoryId(catId);
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', catId);
-
-      // 设置拖拽时的视觉效果 - 使用半透明和阴影
-      const target = e.currentTarget;
-      target.style.opacity = '0.3';
-      target.style.transform = 'scale(0.98)';
-      target.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.3)';
   };
 
   const handleDragOver = (e: React.DragEvent, targetCatId: string) => {
@@ -319,13 +312,20 @@ function App() {
 
       if (!draggedCategoryId || draggedCategoryId === targetCatId) return;
 
-      // 确定拖拽方向（向上还是向下）
-      const draggedIndex = categories.findIndex(c => c.id === draggedCategoryId);
-      const targetIndex = categories.findIndex(c => c.id === targetCatId);
-      const direction = draggedIndex > targetIndex ? 'up' : 'down';
+      // 只有当位置真正改变时才更新
+      if (dragOverCategoryId !== targetCatId) {
+          // 实时交换位置以实现移动动画
+          const newCategories = [...categories];
+          const draggedIndex = newCategories.findIndex(c => c.id === draggedCategoryId);
+          const targetIndex = newCategories.findIndex(c => c.id === targetCatId);
+
+          const draggedItem = newCategories[draggedIndex];
+          newCategories.splice(draggedIndex, 1);
+          newCategories.splice(targetIndex, 0, draggedItem);
+          setCategories(newCategories);
+      }
 
       setDragOverCategoryId(targetCatId);
-      setDragDirection(direction);
   };
 
   const handleDragLeave = (e: React.DragEvent, _targetCatId: string) => {
@@ -335,51 +335,24 @@ function App() {
       // 只有真正离开元素时才清除状态
       if (!currentTarget.contains(relatedTarget)) {
           setDragOverCategoryId(null);
-          setDragDirection(null);
       }
   };
 
-  const handleDrop = (e: React.DragEvent, targetCatId: string) => {
+  const handleDrop = (e: React.DragEvent, _targetCatId: string) => {
       e.preventDefault();
 
-      if (!draggedCategoryId || draggedCategoryId === targetCatId) {
-          setDragOverCategoryId(null);
-          setDragDirection(null);
-          return;
-      }
+      if (!draggedCategoryId) return;
 
-      // 在放置时更新数组顺序
-      const newCategories = [...categories];
-      const draggedIndex = newCategories.findIndex(c => c.id === draggedCategoryId);
-      const targetIndex = newCategories.findIndex(c => c.id === targetCatId);
-
-      if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
-          const draggedItem = newCategories[draggedIndex];
-          newCategories.splice(draggedIndex, 1);
-          newCategories.splice(targetIndex, 0, draggedItem);
-          updateData(links, newCategories);
-      }
+      // 保存当前排序到服务器
+      updateData(links, categories);
 
       setDragOverCategoryId(null);
       setDraggedCategoryId(null);
-      setDragDirection(null);
-
-      // 重置样式
-      const target = e.currentTarget;
-      target.style.opacity = '';
-      target.style.transform = '';
-      target.style.boxShadow = '';
   };
 
-  const handleDragEnd = (e: React.DragEvent, catId: string) => {
-      const target = e.currentTarget;
-      target.style.opacity = '';
-      target.style.transform = '';
-      target.style.boxShadow = '';
-
+  const handleDragEnd = (e: React.DragEvent, _catId: string) => {
       setDragOverCategoryId(null);
       setDraggedCategoryId(null);
-      setDragDirection(null);
   };
 
   // --- Helpers ---
@@ -888,23 +861,18 @@ function App() {
     <>
       <style>{`
         .category-item {
-          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                      opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                      margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                      opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .category-item.sorting {
-          border: 2px dashed #3b82f6 !important;
+          border: 1px dashed #3b82f6 !important;
         }
         .category-item.dragging {
-          opacity: 0.4;
+          opacity: 0.5;
           transform: scale(1.02);
           box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3) !important;
-        }
-        .category-item.shift-up {
-          transform: translateY(-8px);
-        }
-        .category-item.shift-down {
-          transform: translateY(8px);
+          position: relative;
+          z-index: 10;
         }
       `}</style>
       <div className="flex h-screen overflow-hidden text-slate-900 dark:text-slate-50">
@@ -1158,7 +1126,7 @@ function App() {
                       activeCategory === cat.id
                         ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    } ${isSorting ? 'sorting cursor-move' : 'cursor-pointer'} ${draggedCategoryId === cat.id ? 'dragging' : ''} ${dragOverCategoryId === cat.id && dragDirection ? dragDirection === 'up' ? 'shift-up' : 'shift-down' : ''}`}
+                    } ${isSorting ? 'sorting cursor-move' : 'cursor-pointer'} ${draggedCategoryId === cat.id ? 'dragging' : ''}`}
                     onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
