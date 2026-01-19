@@ -146,6 +146,7 @@ function App() {
   const isAutoScrollingRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const categoryContextMenuRef = useRef<HTMLDivElement>(null);
   const searchEngineSelectorRef = useRef<HTMLDivElement>(null);
 
   // --- Category Operations ---
@@ -420,7 +421,7 @@ function App() {
              setContextMenu(null);
           }
           // Close category context menu when clicking outside
-          if (categoryContextMenu && contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+          if (categoryContextMenu && categoryContextMenuRef.current && !categoryContextMenuRef.current.contains(e.target as Node)) {
               setCategoryContextMenu(null);
           }
           if (isMergingCategory) {
@@ -859,7 +860,7 @@ function App() {
       {/* Category Context Menu */}
       {categoryContextMenu && (
         <div
-          ref={contextMenuRef}
+          ref={categoryContextMenuRef}
           className="fixed z-[9999] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-48 py-2 flex flex-col animate-in fade-in zoom-in duration-100"
           style={{ top: categoryContextMenu.y, left: categoryContextMenu.x }}
           onClick={(e) => e.stopPropagation()}
@@ -1199,10 +1200,11 @@ function App() {
         </div>
       </aside>
 
-      <main 
+      <main
           ref={mainRef}
-          className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-y-auto relative scroll-smooth"
+          className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden relative"
       >
+        <div className="flex-1 overflow-y-auto scroll-smooth">
         <header className="h-16 px-4 lg:px-8 flex items-center justify-between bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-4 flex-1">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300">
@@ -1460,6 +1462,7 @@ function App() {
             )}
 
             <div className="h-20"></div>
+        </div>
         </div>
       </main>
 
