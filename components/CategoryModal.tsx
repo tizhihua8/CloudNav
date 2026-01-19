@@ -169,9 +169,13 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
                           key={iconName}
                           type="button"
                           onClick={() => { setIcon(iconName); setShowIconPicker(false); }}
-                          className={`p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex items-center justify-center ${
-                            icon === iconName ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-500' : ''
+                          className={`p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex items-center justify-center relative ${
+                            icon === iconName ? 'bg-blue-100 dark:bg-blue-900/40' : ''
                           }`}
+                        >
+                          {icon === iconName && (
+                            <div className="absolute inset-0 rounded-lg ring-2 ring-blue-500 -z-10"></div>
+                          )}
                         >
                           <div className="text-slate-600 dark:text-slate-300">
                             <IconDisplay iconName={iconName} size={16} />
