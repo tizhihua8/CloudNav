@@ -1093,7 +1093,6 @@ function App() {
                                 )}
                              </div>
                         )}
-                        )}
                     </section>
                 );
             })}
