@@ -4,7 +4,8 @@ import {
   Search, Plus, Upload, Moon, Sun, Menu,
   Trash2, Edit2, Loader2, Cloud, CheckCircle2, AlertCircle, AlertTriangle,
   Pin, Settings, Lock, CloudCog, Github, GitFork, MoreVertical,
-  QrCode, Copy, LayoutGrid, List, Check, ExternalLink, ArrowRight, LogOut, X
+  QrCode, Copy, LayoutGrid, List, Check, ExternalLink, ArrowRight, LogOut, X,
+  Move, PlusSquare, Key, Merge, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { 
     LinkItem, Category, DEFAULT_CATEGORIES, INITIAL_LINKS, 
@@ -68,7 +69,13 @@ function App() {
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, link: LinkItem | null } | null>(null);
-  
+
+  // Category Context Menu State
+  const [categoryContextMenu, setCategoryContextMenu] = useState<{ x: number, y: number, category: Category | null } | null>(null);
+
+  // Category Sort Mode
+  const [isSortingCategory, setIsSortingCategory] = useState<string | null>(null);
+
   const [qrCodeLink, setQrCodeLink] = useState<LinkItem | null>(null);
 
   const [unlockedCategoryIds, setUnlockedCategoryIds] = useState<Set<string>>(new Set());
@@ -124,6 +131,48 @@ function App() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const searchEngineSelectorRef = useRef<HTMLDivElement>(null);
+
+  // --- Category Operations ---
+
+  const handleAddCategory = () => {
+      if (!authToken) { setIsAuthOpen(true); return; }
+      setCatManagerOpen(true);
+  };
+
+  const handleSortCategory = (catId: string) => {
+      if (!authToken) { setIsAuthOpen(true); return; }
+      setIsSortingCategory(catId);
+  };
+
+  const handleRenameCategory = (cat: Category) => {
+      if (!authToken) { setIsAuthOpen(true); return; }
+      setIsCatManagerOpen(true);
+      // 在 CategoryManagerModal 中设置编辑状态
+      setCategoryContextMenu(null);
+  };
+
+  const handleEditCategoryPassword = (cat: Category) => {
+      if (!authToken) { setIsAuthOpen(true); return; }
+      setIsCatManagerOpen(true);
+      setCategoryContextMenu(null);
+  };
+
+  const handleMergeCategory = (cat: Category) => {
+      if (!authToken) { setIsAuthOpen(true); return; }
+      setIsCatManagerOpen(true);
+      setCategoryContextMenu(null);
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+      if (!authToken) { setIsAuthOpen(true); return; }
+      setIsCatManagerOpen(true);
+      setCategoryContextMenu(null);
+  };
+
+  const handleSaveCategorySort = () => {
+      setIsSortingCategory(null);
+      // 这里保存排序逻辑可以后续实现
+  };
 
   // --- Helpers ---
 
@@ -252,6 +301,10 @@ function App() {
           if (contextMenu && contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
              setContextMenu(null);
           }
+          // Close category context menu when clicking outside
+          if (categoryContextMenu) {
+              setCategoryContextMenu(null);
+          }
           // Close search engine selector when clicking outside
           if (showEngineSelector && searchEngineSelectorRef.current && !searchEngineSelectorRef.current.contains(e.target as Node)) {
               setShowEngineSelector(false);
@@ -260,6 +313,7 @@ function App() {
 
       const handleScroll = () => {
          if (contextMenu) setContextMenu(null);
+         if (categoryContextMenu) setCategoryContextMenu(null);
          if (showEngineSelector) setShowEngineSelector(false);
       };
 
@@ -279,7 +333,7 @@ function App() {
           window.removeEventListener('scroll', handleScroll, true);
           window.removeEventListener('contextmenu', handleGlobalContextMenu);
       }
-  }, [openMenuId, contextMenu, showEngineSelector]);
+  }, [openMenuId, contextMenu, categoryContextMenu, showEngineSelector]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -445,14 +499,6 @@ function App() {
   const handleUpdateCategories = (newCats: Category[], newLinks?: LinkItem[]) => {
       if (!authToken) { setIsAuthOpen(true); return; }
       updateData(newLinks || links, newCats);
-  };
-
-  const handleDeleteCategory = (catId: string) => {
-      if (!authToken) { setIsAuthOpen(true); return; }
-      const newCats = categories.filter(c => c.id !== catId);
-      const newLinks = links.filter(l => l.categoryId !== catId);
-      if (newCats.length === 0) newCats.push(DEFAULT_CATEGORIES[0]);
-      updateData(newLinks, newCats);
   };
 
   const handleSaveWebDavConfig = (config: WebDavConfig) => {
@@ -668,14 +714,67 @@ function App() {
         onUnlock={handleUnlockCategory}
       />
 
-      <CategoryManagerModal 
-        isOpen={isCatManagerOpen} 
+      <CategoryManagerModal
+        isOpen={isCatManagerOpen}
         onClose={() => setIsCatManagerOpen(false)}
         categories={categories}
         links={links}
         onUpdateCategories={handleUpdateCategories}
         onDeleteCategory={handleDeleteCategory}
       />
+
+      {/* Category Context Menu */}
+      {categoryContextMenu && (
+        <div
+          className="fixed z-[9999] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-48 py-2 flex flex-col animate-in fade-in zoom-in duration-100"
+          style={{ top: categoryContextMenu.y, left: categoryContextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={handleAddCategory}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+          >
+            <PlusSquare size={16} className="text-slate-400"/>
+            <span>添加分类</span>
+          </button>
+          <button
+            onClick={() => handleSortCategory(categoryContextMenu.category.id)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+          >
+            <Move size={16} className="text-slate-400"/>
+            <span>排序</span>
+          </button>
+          <button
+            onClick={() => handleRenameCategory(categoryContextMenu.category)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+          >
+            <Edit2 size={16} className="text-slate-400"/>
+            <span>重命名</span>
+          </button>
+          <button
+            onClick={() => handleEditCategoryPassword(categoryContextMenu.category)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+          >
+            <Key size={16} className="text-slate-400"/>
+            <span>修改密码</span>
+          </button>
+          <button
+            onClick={() => handleMergeCategory(categoryContextMenu.category)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left"
+          >
+            <Merge size={16} className="text-slate-400"/>
+            <span>合并到</span>
+          </button>
+          <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2"/>
+          <button
+            onClick={() => handleDeleteCategory(categoryContextMenu.category.id)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+          >
+            <Trash2 size={16} />
+            <span>删除</span>
+          </button>
+        </div>
+      )}
 
       <BackupModal
         isOpen={isBackupModalOpen}
@@ -760,35 +859,69 @@ function App() {
             
             <div className="flex items-center justify-between pt-4 pb-2 px-4">
                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">分类目录</span>
-               <button 
-                  onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsCatManagerOpen(true); }}
-                  className="p-1 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-                  title="管理分类"
-               >
-                  <Settings size={14} />
-               </button>
+               {isSortingCategory === 'all' ? (
+                   <button
+                      onClick={handleSaveCategorySort}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                   >
+                      确认
+                   </button>
+               ) : (
+                   <button
+                      onClick={handleAddCategory}
+                      className="p-1 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                      title="添加分类"
+                   >
+                      <Plus size={14} />
+                   </button>
+               )}
             </div>
 
             {categories.map(cat => {
                 const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
                 const isEmoji = cat.icon && cat.icon.length <= 4 && !/^[a-zA-Z]+$/.test(cat.icon);
-                
+
                 return (
-                  <button
+                  <div
                     key={cat.id}
-                    onClick={() => scrollToCategory(cat.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${
-                      activeCategory === cat.id 
-                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group relative ${
+                      activeCategory === cat.id
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
+                    onContextMenu={(e) => {
+                        e.preventDefault();
+                        let x = e.clientX;
+                        let y = e.clientY;
+                        // Boundary adjustment
+                        if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+                        if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
+                        setCategoryContextMenu({ x, y, category: cat });
+                    }}
                   >
-                    <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${activeCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                      {isLocked ? <Lock size={16} className="text-amber-500" /> : (isEmoji ? <span className="text-base leading-none">{cat.icon}</span> : <Icon name={cat.icon} size={16} />)}
+                    <div className="flex-1 flex items-center gap-3" onClick={() => scrollToCategory(cat.id)}>
+                        <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${activeCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                          {isLocked ? <Lock size={16} className="text-amber-500" /> : (isEmoji ? <span className="text-base leading-none">{cat.icon}</span> : <Icon name={cat.icon} size={16} />)}
+                        </div>
+                        <span className="truncate flex-1 text-left">{cat.name}</span>
+                        {activeCategory === cat.id && isSortingCategory === cat.id ? (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleSaveCategorySort(); }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                            >
+                                确认
+                            </button>
+                        ) : activeCategory === cat.id ? (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleSortCategory(cat.id); }}
+                                className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"
+                                title="排序"
+                            >
+                                <Move size={14} />
+                            </button>
+                        ) : null}
                     </div>
-                    <span className="truncate flex-1 text-left">{cat.name}</span>
-                    {activeCategory === cat.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
-                  </button>
+                  </div>
                 );
             })}
         </div>
