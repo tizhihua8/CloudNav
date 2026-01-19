@@ -491,13 +491,9 @@ function App() {
   };
 
   const pinnedLinks = useMemo(() => {
-      // 当选择特定分类时，只显示该分类下的置顶链接
-      if (activeCategory !== 'all') {
-          return links.filter(l => l.pinned === true && l.categoryId === activeCategory && !isCategoryLocked(l.categoryId));
-      }
-      // 全部链接时显示所有置顶链接
+      // 始终显示所有置顶链接
       return links.filter(l => l.pinned === true && !isCategoryLocked(l.categoryId));
-  }, [links, categories, unlockedCategoryIds, activeCategory]);
+  }, [links, categories, unlockedCategoryIds]);
 
   const searchResults = useMemo(() => {
     // Only filter locally if mode is 'local'
