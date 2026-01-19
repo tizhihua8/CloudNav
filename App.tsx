@@ -13,6 +13,7 @@ import {
 } from './types';
 import Icon from './components/Icon';
 import LinkModal from './components/LinkModal';
+import CategoryModal from './components/CategoryModal';
 import AuthModal from './components/AuthModal';
 import BackupModal from './components/BackupModal';
 import CategoryAuthModal from './components/CategoryAuthModal';
@@ -75,33 +76,10 @@ function App() {
   // Category Sort Mode
   const [isSortingCategory, setIsSortingCategory] = useState<string | null>(null);
 
-  // Category Rename Mode
-  const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
-  const [renamingValue, setRenamingValue] = useState('');
-  const [editingPasswordValue, setEditingPasswordValue] = useState('');
-  const [editingIconValue, setEditingIconValue] = useState('');
-
-  // Add Category Mode
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryPassword, setNewCategoryPassword] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('');
-
-  // Icon Picker
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [iconPickerTarget, setIconPickerTarget] = useState<'rename' | 'add' | null>(null);
-  const [selectedIcon, setSelectedIcon] = useState('');
-
-  const iconList = [
-    'Folder', 'Star', 'Heart', 'Home', 'Book', 'Code', 'Globe', 'Music', 'Video', 'Image',
-    'File', 'Link', 'Settings', 'Search', 'Mail', 'Phone', 'User', 'Calendar', 'Clock', 'Map',
-    'Camera', 'Headphones', 'Terminal', 'Database', 'Server', 'Cloud', 'Download', 'Upload',
-    'Share', 'Copy', 'Cut', 'Trash', 'Edit', 'Check', 'X', 'Plus', 'Minus', 'Bookmark'
-  ];
-
-  // Merge Category Mode
-  const [isMergingCategory, setIsMergingCategory] = useState<string | null>(null);
-  const [mergeTargetId, setMergeTargetId] = useState<string>('');
+  // Category Modal State
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryModalMode, setCategoryModalMode] = useState<'add' | 'edit' | 'merge'>('add');
+  const [categoryModalCategory, setCategoryModalCategory] = useState<Category | undefined>(undefined);
 
   // Drag and Drop Sort State
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
@@ -168,9 +146,9 @@ function App() {
 
   const handleAddCategory = () => {
       if (!authToken) { setIsAuthOpen(true); return; }
-      setIsAddingCategory(true);
-      setNewCategoryName('');
-      setNewCategoryPassword('');
+      setCategoryModalMode('add');
+      setCategoryModalCategory(undefined);
+      setCategoryModalOpen(true);
       setCategoryContextMenu(null);
   };
 
@@ -182,17 +160,17 @@ function App() {
 
   const handleRenameCategory = (cat: Category) => {
       if (!authToken) { setIsAuthOpen(true); return; }
-      setRenamingCategoryId(cat.id);
-      setRenamingValue(cat.name);
-      setEditingPasswordValue(cat.password || '');
-      setEditingIconValue(cat.icon);
+      setCategoryModalMode('edit');
+      setCategoryModalCategory(cat);
+      setCategoryModalOpen(true);
       setCategoryContextMenu(null);
   };
 
   const handleMergeCategory = (cat: Category) => {
       if (!authToken) { setIsAuthOpen(true); return; }
-      setIsMergingCategory(cat.id);
-      setMergeTargetId('');
+      setCategoryModalMode('merge');
+      setCategoryModalCategory(cat);
+      setCategoryModalOpen(true);
       setCategoryContextMenu(null);
   };
 
@@ -218,85 +196,34 @@ function App() {
       setIsSortingCategory(null);
   };
 
-  const handleConfirmAddCategory = () => {
-      if (!newCategoryName.trim()) return;
-
+  const handleModalAddCategory = (name: string, icon: string, password?: string) => {
       const newCategory: Category = {
           id: Date.now().toString(),
-          name: newCategoryName.trim(),
-          icon: newCategoryIcon || 'Folder',
-          password: newCategoryPassword.trim() || undefined
+          name: name.trim(),
+          icon: icon || 'Folder',
+          password: password?.trim() || undefined
       };
-
       const newCategories = [...categories, newCategory];
       updateData(links, newCategories);
-      setIsAddingCategory(false);
-      setNewCategoryName('');
-      setNewCategoryPassword('');
-      setNewCategoryIcon('');
+      setCategoryModalOpen(false);
   };
 
-  const handleCancelAddCategory = () => {
-      setIsAddingCategory(false);
-      setNewCategoryName('');
-      setNewCategoryPassword('');
-      setNewCategoryIcon('');
-  };
-
-  const handleOpenIconPicker = (target: 'rename' | 'add') => {
-      setIconPickerTarget(target);
-      setSelectedIcon(target === 'rename' ? editingIconValue : newCategoryIcon);
-      setIconPickerOpen(true);
-  };
-
-  const handleSelectIcon = (icon: string) => {
-      setSelectedIcon(icon);
-      if (iconPickerTarget === 'rename') {
-          setEditingIconValue(icon);
-      } else if (iconPickerTarget === 'add') {
-          setNewCategoryIcon(icon);
-      }
-      setIconPickerOpen(false);
-  };
-
-  const handleConfirmRename = () => {
-      if (!renamingCategoryId || !renamingValue.trim()) return;
+  const handleModalEditCategory = (categoryId: string, name: string, icon: string, password?: string) => {
       const newCategories = categories.map(cat =>
-          cat.id === renamingCategoryId ? { ...cat, name: renamingValue.trim(), password: editingPasswordValue.trim() || undefined, icon: editingIconValue } : cat
+          cat.id === categoryId ? { ...cat, name: name.trim(), password: password?.trim() || undefined, icon } : cat
       );
       updateData(links, newCategories);
-      setRenamingCategoryId(null);
-      setRenamingValue('');
-      setEditingPasswordValue('');
-      setEditingIconValue('');
+      setCategoryModalOpen(false);
   };
 
-  const handleCancelRename = () => {
-      setRenamingCategoryId(null);
-      setRenamingValue('');
-      setEditingPasswordValue('');
-      setEditingIconValue('');
-  };
-
-  const handleConfirmMerge = () => {
-      if (!isMergingCategory || !mergeTargetId) return;
-      if (isMergingCategory === mergeTargetId) return;
-
-      const targetCat = categories.find(c => c.id === mergeTargetId);
-      if (!targetCat) return;
-
+  const handleModalMergeCategory = (sourceId: string, targetId: string) => {
+      if (sourceId === targetId) return;
       const newLinks = links.map(l =>
-          l.categoryId === isMergingCategory ? { ...l, categoryId: targetCat.id } : l
+          l.categoryId === sourceId ? { ...l, categoryId: targetId } : l
       );
-      const newCategories = categories.filter(c => c.id !== isMergingCategory);
+      const newCategories = categories.filter(c => c.id !== sourceId);
       updateData(newLinks, newCategories);
-      setIsMergingCategory(null);
-      setMergeTargetId('');
-  };
-
-  const handleCancelMerge = () => {
-      setIsMergingCategory(null);
-      setMergeTargetId('');
+      setCategoryModalOpen(false);
   };
 
   // Drag and Drop handlers
@@ -482,19 +409,6 @@ function App() {
           if (contextMenu) setContextMenu(null);
           if (categoryContextMenu) setCategoryContextMenu(null);
           if (showEngineSelector) setShowEngineSelector(false);
-          if (iconPickerOpen) {
-              setIconPickerOpen(false);
-              setIconPickerTarget(null);
-          }
-          if (renamingCategoryId) {
-              handleCancelRename();
-          }
-          if (isAddingCategory) {
-              handleCancelAddCategory();
-          }
-          if (isMergingCategory) {
-              handleCancelMerge();
-          }
           if (isSortingCategory) {
               setIsSortingCategory(null);
           }
@@ -525,38 +439,6 @@ function App() {
               }
           }
 
-          // 处理图标选择器
-          if (iconPickerOpen) {
-              const iconPickerElement = document.querySelector('[data-icon-picker="true"]');
-              if (iconPickerElement && !iconPickerElement.contains(target)) {
-                  setIconPickerOpen(false);
-              }
-          }
-
-          // 处理编辑中的分类
-          if (renamingCategoryId) {
-              const editingElement = document.querySelector(`[data-editing="${renamingCategoryId}"]`);
-              if (editingElement && !editingElement.contains(target)) {
-                  handleCancelRename();
-              }
-          }
-
-          // 处理添加中的分类
-          if (isAddingCategory) {
-              const addingElement = document.querySelector('[data-adding="true"]');
-              if (addingElement && !addingElement.contains(target)) {
-                  handleCancelAddCategory();
-              }
-          }
-
-          // 处理合并中的分类
-          if (isMergingCategory) {
-              const mergingElement = document.querySelector(`[data-merging="${isMergingCategory}"]`);
-              if (mergingElement && !mergingElement.contains(target)) {
-                  handleCancelMerge();
-              }
-          }
-
           // 处理排序状态
           if (isSortingCategory) {
               const sidebarElement = document.querySelector('aside');
@@ -580,7 +462,7 @@ function App() {
           window.removeEventListener('mousedown', handleClickOutside);
           window.removeEventListener('scroll', handleScroll, true);
       }
-  }, [openMenuId, contextMenu, categoryContextMenu, showEngineSelector, iconPickerOpen, renamingCategoryId, isAddingCategory, isMergingCategory, isSortingCategory]);
+  }, [openMenuId, contextMenu, categoryContextMenu, showEngineSelector, isSortingCategory]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1053,6 +935,17 @@ function App() {
         authToken={authToken}
       />
 
+      <CategoryModal
+        isOpen={categoryModalOpen}
+        mode={categoryModalMode}
+        onClose={() => setCategoryModalOpen(false)}
+        onAdd={handleModalAddCategory}
+        onEdit={handleModalEditCategory}
+        onMerge={handleModalMergeCategory}
+        category={categoryModalCategory}
+        categories={categories}
+      />
+
       {/* Sidebar Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -1110,7 +1003,6 @@ function App() {
             {categories.map(cat => {
                 const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
                 const isEmoji = cat.icon && cat.icon.length <= 4 && !/^[a-zA-Z]+$/.test(cat.icon);
-                const isRenaming = renamingCategoryId === cat.id;
                 const isSorting = isSortingCategory === 'all';
 
                 return (
@@ -1130,7 +1022,7 @@ function App() {
                     onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (isSorting || isRenaming || isAddingCategory || isMergingCategory) return;
+                        if (isSorting || categoryModalOpen) return;
                         let x = e.clientX;
                         let y = e.clientY;
                         // Boundary adjustment
@@ -1138,169 +1030,15 @@ function App() {
                         if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
                         setCategoryContextMenu({ x, y, category: cat });
                     }}
+                    onClick={() => !isSorting && scrollToCategory(cat.id)}
                   >
-                    {isRenaming ? (
-                        <div data-editing={renamingCategoryId} className="w-full" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <div
-                                    onClick={() => handleOpenIconPicker('rename')}
-                                    className="p-1.5 rounded-lg transition-colors flex items-center justify-center cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
-                                    title="点击更换图标"
-                                >
-                                    {isEmoji ? (
-                                        <span className="text-base leading-none">{editingIconValue}</span>
-                                    ) : (
-                                        <Icon name={editingIconValue} size={16} />
-                                    )}
-                                </div>
-                                <input
-                                    type="text"
-                                    value={renamingValue}
-                                    onChange={(e) => setRenamingValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleConfirmRename();
-                                        if (e.key === 'Escape') handleCancelRename();
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    placeholder="分类名称"
-                                    className="flex-1 min-w-0 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                                    autoFocus
-                                />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="relative flex-1">
-                                    <Lock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                                    <input
-                                        type="password"
-                                        value={editingPasswordValue}
-                                        onChange={(e) => setEditingPasswordValue(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleConfirmRename();
-                                            if (e.key === 'Escape') handleCancelRename();
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                        placeholder="密码(可选)"
-                                        className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                                    />
-                                </div>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleConfirmRename(); }}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors shrink-0"
-                                >
-                                    确认
-                                </button>
-                            </div>
-                        </div>
-                    ) : isMergingCategory === cat.id ? (
-                        <div data-merging={isMergingCategory} className="w-full" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center gap-2">
-                                <select
-                                    value={mergeTargetId}
-                                    onChange={(e) => setMergeTargetId(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleConfirmMerge();
-                                        if (e.key === 'Escape') handleCancelMerge();
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex-1 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                                    autoFocus
-                                >
-                                    <option value="">选择目标分类</option>
-                                    {categories
-                                        .filter(c => c.id !== isMergingCategory)
-                                        .map(c => {
-                                            const catEmoji = c.icon && c.icon.length <= 4 && !/^[a-zA-Z]+$/.test(c.icon);
-                                            return (
-                                                <option key={c.id} value={c.id}>
-                                                    {catEmoji ? c.icon + ' ' : ''}{c.name}
-                                                </option>
-                                            );
-                                        })
-                                    }
-                                </select>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleConfirmMerge(); }}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors shrink-0"
-                                >
-                                    确认
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="w-full flex items-center gap-3" onClick={() => !isSorting && scrollToCategory(cat.id)} onContextMenu={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (isSorting || isRenaming || isAddingCategory || isMergingCategory) return;
-                            let x = e.clientX;
-                            let y = e.clientY;
-                            if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
-                            if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
-                            setCategoryContextMenu({ x, y, category: cat });
-                        }}>
-                            <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${activeCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                              {isLocked ? <Lock size={16} className="text-amber-500" /> : (isEmoji ? <span className="text-base leading-none">{cat.icon}</span> : <Icon name={cat.icon} size={16} />)}
-                            </div>
-                            <span className="truncate flex-1 text-left">{cat.name}</span>
-                        </div>
-                    )}
+                    <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${activeCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                      {isLocked ? <Lock size={16} className="text-amber-500" /> : (isEmoji ? <span className="text-base leading-none">{cat.icon}</span> : <Icon name={cat.icon} size={16} />)}
+                    </div>
+                    <span className="truncate flex-1 text-left">{cat.name}</span>
                   </div>
                 );
             })}
-
-            {/* Add Category Form */}
-            {isAddingCategory && (
-                <div data-adding="true" className="w-full" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2 mb-2">
-                        <div
-                            onClick={() => handleOpenIconPicker('add')}
-                            className="p-1.5 rounded-lg transition-colors flex items-center justify-center cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
-                            title="点击更换图标"
-                        >
-                            {newCategoryIcon && newCategoryIcon.length <= 4 && !/^[a-zA-Z]+$/.test(newCategoryIcon) ? (
-                                <span className="text-base leading-none">{newCategoryIcon}</span>
-                            ) : (
-                                <Icon name={newCategoryIcon} size={16} />
-                            )}
-                        </div>
-                        <input
-                            type="text"
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleConfirmAddCategory();
-                                if (e.key === 'Escape') handleCancelAddCategory();
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="分类名称"
-                            className="flex-1 min-w-0 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                            autoFocus
-                        />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                            <Lock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                                type="password"
-                                value={newCategoryPassword}
-                                onChange={(e) => setNewCategoryPassword(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleConfirmAddCategory();
-                                    if (e.key === 'Escape') handleCancelAddCategory();
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                placeholder="密码(可选)"
-                                className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                            />
-                        </div>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); handleConfirmAddCategory(); }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors shrink-0"
-                        >
-                            确认
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
 
         <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
@@ -1397,46 +1135,6 @@ function App() {
             <Trash2 size={16} />
             <span>删除</span>
           </button>
-        </div>
-      )}
-
-      {/* Icon Picker Modal */}
-      {iconPickerOpen && (
-        <div
-          data-icon-picker="true"
-          className="fixed z-[9999] bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 animate-in fade-in zoom-in duration-200 max-w-md w-full"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">选择图标</h3>
-            <button
-              onClick={() => setIconPickerOpen(false)}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <X size={20} className="text-slate-500" />
-            </button>
-          </div>
-          <div className="grid grid-cols-8 gap-2 max-h-64 overflow-y-auto">
-            {iconList.map((icon) => {
-              const isEmoji = icon.length <= 4 && !/^[a-zA-Z]+$/.test(icon);
-              return (
-                <button
-                  key={icon}
-                  onClick={() => handleSelectIcon(icon)}
-                  className={`p-3 rounded-lg transition-all hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center ${
-                    selectedIcon === icon ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500' : ''
-                  }`}
-                  title={icon}
-                >
-                  {isEmoji ? (
-                    <span className="text-xl">{icon}</span>
-                  ) : (
-                    <Icon name={icon} size={20} className="text-slate-600 dark:text-slate-300" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
         </div>
       )}
 
