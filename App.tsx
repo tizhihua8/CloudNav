@@ -92,6 +92,7 @@ function App() {
 
   // Drag and Drop Sort State
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
+  const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null);
 
   const [qrCodeLink, setQrCodeLink] = useState<LinkItem | null>(null);
 
@@ -265,14 +266,15 @@ function App() {
       e.currentTarget.classList.add('dragging');
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, targetCatId: string) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-  };
 
-  const handleDrop = (e: React.DragEvent, targetCatId: string) => {
-      e.preventDefault();
       if (!draggedCategoryId || draggedCategoryId === targetCatId) return;
+      if (dragOverCategoryId === targetCatId) return;
+
+      // 实时更新数组顺序以显示动画效果
+      setDragOverCategoryId(targetCatId);
 
       const newCategories = [...categories];
       const draggedIndex = newCategories.findIndex(c => c.id === draggedCategoryId);
@@ -283,12 +285,22 @@ function App() {
           newCategories.splice(targetIndex, 0, draggedItem);
           updateData(links, newCategories);
       }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+      // 可以在这里添加离开效果
+  };
+
+  const handleDrop = (e: React.DragEvent, targetCatId: string) => {
+      e.preventDefault();
+      setDragOverCategoryId(null);
       setDraggedCategoryId(null);
       // 移除拖拽动画类
       e.currentTarget.classList.remove('dragging');
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
+      setDragOverCategoryId(null);
       setDraggedCategoryId(null);
       e.currentTarget.classList.remove('dragging');
   };
@@ -518,11 +530,6 @@ function App() {
       localStorage.setItem('theme', 'light');
     }
   };
-
-  // Debug categoryContextMenu state changes
-  useEffect(() => {
-    console.log('categoryContextMenu state changed:', categoryContextMenu);
-  }, [categoryContextMenu]);
 
   // --- Handlers ---
   const handleLogin = async (password: string): Promise<boolean> => {
@@ -970,81 +977,80 @@ function App() {
                     key={cat.id}
                     draggable={isSorting}
                     onDragStart={(e) => handleDragStart(e, cat.id)}
-                    onDragOver={handleDragOver}
+                    onDragOver={(e) => handleDragOver(e, cat.id)}
+                    onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, cat.id)}
                     onDragEnd={handleDragEnd}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group relative ${
                       activeCategory === cat.id
                         ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    } ${isSorting ? 'cursor-move' : ''} ${draggedCategoryId === cat.id ? 'opacity-50' : ''}`}
+                    } ${isSorting ? 'cursor-move' : ''} ${draggedCategoryId === cat.id ? 'opacity-50' : ''} ${dragOverCategoryId === cat.id ? 'border-2 border-blue-400' : ''}`}
                     onContextMenu={(e) => {
-                        console.log('Category right click triggered on:', cat.name);
-                        console.log('Event:', e);
                         e.preventDefault();
                         e.stopPropagation();
-                        if (isSorting || isRenaming || isAddingCategory || isMergingCategory) {
-                            console.log('Returning early - mode active:', { isSorting, isRenaming, isAddingCategory, isMergingCategory });
-                            return;
-                        }
+                        if (isSorting || isRenaming || isAddingCategory || isMergingCategory) return;
                         let x = e.clientX;
                         let y = e.clientY;
                         // Boundary adjustment
                         if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
                         if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
-                        console.log('Setting category menu at:', { x, y });
                         setCategoryContextMenu({ x, y, category: cat });
                     }}
                   >
                     {isRenaming ? (
-                        <div data-editing={renamingCategoryId} className="flex-1 flex items-center gap-2 w-full" onClick={(e) => e.stopPropagation()}>
-                            <div
-                                className="p-1.5 rounded-lg transition-colors flex items-center justify-center cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-700"
-                                title="点击更换图标"
-                            >
-                                {isEmoji ? (
-                                    <span className="text-base leading-none">{editingIconValue}</span>
-                                ) : (
-                                    <Icon name={editingIconValue} size={16} />
-                                )}
-                            </div>
-                            <input
-                                type="text"
-                                value={renamingValue}
-                                onChange={(e) => setRenamingValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleConfirmRename();
-                                    if (e.key === 'Escape') handleCancelRename();
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex-1 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                autoFocus
-                            />
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleConfirmRename(); }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors shrink-0"
-                            >
-                                确认
-                            </button>
-                            <div className="relative flex-1">
-                                <Lock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <div data-editing={renamingCategoryId} className="w-full" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div
+                                    className="p-1.5 rounded-lg transition-colors flex items-center justify-center cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-700"
+                                    title="点击更换图标"
+                                >
+                                    {isEmoji ? (
+                                        <span className="text-base leading-none">{editingIconValue}</span>
+                                    ) : (
+                                        <Icon name={editingIconValue} size={16} />
+                                    )}
+                                </div>
                                 <input
-                                    type="password"
-                                    value={editingPasswordValue}
-                                    onChange={(e) => setEditingPasswordValue(e.target.value)}
+                                    type="text"
+                                    value={renamingValue}
+                                    onChange={(e) => setRenamingValue(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') handleConfirmRename();
                                         if (e.key === 'Escape') handleCancelRename();
                                     }}
                                     onClick={(e) => e.stopPropagation()}
-                                    placeholder="密码"
-                                    className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="分类名称"
+                                    className="flex-1 min-w-0 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    autoFocus
                                 />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="relative flex-1">
+                                    <Lock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        type="password"
+                                        value={editingPasswordValue}
+                                        onChange={(e) => setEditingPasswordValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleConfirmRename();
+                                            if (e.key === 'Escape') handleCancelRename();
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        placeholder="密码(可选)"
+                                        className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleConfirmRename(); }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors shrink-0"
+                                >
+                                    确认
+                                </button>
                             </div>
                         </div>
                     ) : (
                         <div className="w-full flex items-center gap-3" onClick={() => !isSorting && scrollToCategory(cat.id)} onContextMenu={(e) => {
-                            console.log('Inner div right click triggered on:', cat.name);
                             e.preventDefault();
                             e.stopPropagation();
                             if (isSorting || isRenaming || isAddingCategory || isMergingCategory) return;
@@ -1052,7 +1058,6 @@ function App() {
                             let y = e.clientY;
                             if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
                             if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
-                            console.log('Setting category menu from inner div at:', { x, y });
                             setCategoryContextMenu({ x, y, category: cat });
                         }}>
                             <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${activeCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
@@ -1185,15 +1190,8 @@ function App() {
           ref={categoryContextMenuRef}
           className="fixed z-[9999] bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-48 py-2 flex flex-col animate-in fade-in zoom-in duration-100"
           style={{ top: categoryContextMenu.y, left: categoryContextMenu.x, position: 'fixed' }}
-          onClick={(e) => {
-              console.log('Category menu item clicked');
-              e.stopPropagation();
-          }}
-          onContextMenu={(e) => {
-              console.log('Context menu on the menu itself');
-              e.preventDefault();
-          }}
-          onMouseEnter={() => console.log('Category menu mouse enter')}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
         >
           <button
             onClick={handleAddCategory}
