@@ -258,7 +258,6 @@ function App() {
           setNewCategoryIcon(icon);
       }
       setIconPickerOpen(false);
-      setIconPickerTarget(null);
   };
 
   const handleConfirmRename = () => {
@@ -523,6 +522,9 @@ function App() {
           if (isMergingCategory) {
               handleCancelMerge();
           }
+          if (isSortingCategory) {
+              setIsSortingCategory(null);
+          }
           if (openMenuId) setOpenMenuId(null);
       };
 
@@ -555,7 +557,6 @@ function App() {
               const iconPickerElement = document.querySelector('[data-icon-picker="true"]');
               if (iconPickerElement && !iconPickerElement.contains(target)) {
                   setIconPickerOpen(false);
-                  setIconPickerTarget(null);
               }
           }
 
@@ -582,6 +583,14 @@ function App() {
                   handleCancelMerge();
               }
           }
+
+          // 处理排序状态
+          if (isSortingCategory) {
+              const sidebarElement = document.querySelector('aside');
+              if (sidebarElement && !sidebarElement.contains(target)) {
+                  setIsSortingCategory(null);
+              }
+          }
       };
 
       const handleScroll = () => {
@@ -598,7 +607,7 @@ function App() {
           window.removeEventListener('mousedown', handleClickOutside);
           window.removeEventListener('scroll', handleScroll, true);
       }
-  }, [openMenuId, contextMenu, categoryContextMenu, showEngineSelector, iconPickerOpen, renamingCategoryId, isAddingCategory, isMergingCategory]);
+  }, [openMenuId, contextMenu, categoryContextMenu, showEngineSelector, iconPickerOpen, renamingCategoryId, isAddingCategory, isMergingCategory, isSortingCategory]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -879,30 +888,23 @@ function App() {
     <>
       <style>{`
         .category-item {
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                      opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                      box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                      opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                      margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .category-item.sorting {
+          border: 2px dashed #3b82f6 !important;
         }
         .category-item.dragging {
-          opacity: 0.3;
-          transform: scale(0.98);
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+          opacity: 0.4;
+          transform: scale(1.02);
+          box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3) !important;
         }
-        .category-item.drag-over-up {
-          border-top: 3px solid #3b82f6 !important;
-          background: linear-gradient(to bottom, rgba(59, 130, 246, 0.08), transparent) !important;
+        .category-item.shift-up {
+          transform: translateY(-8px);
         }
-        .category-item.drag-over-down {
-          border-bottom: 3px solid #3b82f6 !important;
-          background: linear-gradient(to top, rgba(59, 130, 246, 0.08), transparent) !important;
-        }
-        @keyframes dropPulse {
-          0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-          70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-        .category-item.drop-animation {
-          animation: dropPulse 0.4s ease-out;
+        .category-item.shift-down {
+          transform: translateY(8px);
         }
       `}</style>
       <div className="flex h-screen overflow-hidden text-slate-900 dark:text-slate-50">
@@ -1156,7 +1158,7 @@ function App() {
                       activeCategory === cat.id
                         ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    } ${isSorting ? 'cursor-move' : 'cursor-pointer'} ${draggedCategoryId === cat.id ? 'dragging' : ''} ${dragOverCategoryId === cat.id ? dragDirection === 'up' ? 'drag-over-up' : 'drag-over-down' : ''}`}
+                    } ${isSorting ? 'sorting cursor-move' : 'cursor-pointer'} ${draggedCategoryId === cat.id ? 'dragging' : ''} ${dragOverCategoryId === cat.id && dragDirection ? dragDirection === 'up' ? 'shift-up' : 'shift-down' : ''}`}
                     onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -1193,7 +1195,7 @@ function App() {
                                     }}
                                     onClick={(e) => e.stopPropagation()}
                                     placeholder="分类名称"
-                                    className="flex-1 min-w-0 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="flex-1 min-w-0 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
                                     autoFocus
                                 />
                             </div>
@@ -1210,7 +1212,7 @@ function App() {
                                         }}
                                         onClick={(e) => e.stopPropagation()}
                                         placeholder="密码(可选)"
-                                        className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
                                     />
                                 </div>
                                 <button
@@ -1232,7 +1234,7 @@ function App() {
                                         if (e.key === 'Escape') handleCancelMerge();
                                     }}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="flex-1 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="flex-1 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
                                     autoFocus
                                 >
                                     <option value="">选择目标分类</option>
@@ -1302,7 +1304,7 @@ function App() {
                             }}
                             onClick={(e) => e.stopPropagation()}
                             placeholder="分类名称"
-                            className="flex-1 min-w-0 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 min-w-0 bg-white dark:bg-slate-700 text-sm px-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
                             autoFocus
                         />
                     </div>
@@ -1319,7 +1321,7 @@ function App() {
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder="密码(可选)"
-                                className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-blue-300 dark:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-white dark:bg-slate-700 text-sm pl-8 pr-2 py-1 rounded border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400"
                             />
                         </div>
                         <button
@@ -1440,7 +1442,7 @@ function App() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-slate-800 dark:text-white">选择图标</h3>
             <button
-              onClick={() => { setIconPickerOpen(false); setIconPickerTarget(null); }}
+              onClick={() => setIconPickerOpen(false)}
               className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
             >
               <X size={20} className="text-slate-500" />
