@@ -1,6 +1,23 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   Search, Plus, Upload, Moon, Sun, Menu,
   Trash2, Edit2, Loader2, Cloud, CheckCircle2, AlertCircle, AlertTriangle,
   Pin, Settings, Lock, CloudCog, GitFork,
@@ -81,9 +98,15 @@ function App() {
   const [categoryModalMode, setCategoryModalMode] = useState<'add' | 'edit' | 'merge'>('add');
   const [categoryModalCategory, setCategoryModalCategory] = useState<Category | undefined>(undefined);
 
-  // Drag and Drop Sort State
-  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null);
-  const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null);
+  // Drag and Drop State
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const [qrCodeLink, setQrCodeLink] = useState<LinkItem | null>(null);
 
@@ -196,6 +219,19 @@ function App() {
       setIsSortingCategory(null);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (active && over && active.id !== over.id) {
+          const oldIndex = categories.findIndex(c => c.id === active.id);
+          const newIndex = categories.findIndex(c => c.id === over.id);
+          const newCategories = arrayMove(categories, oldIndex, newIndex);
+          updateData(links, newCategories);
+      }
+
+      setActiveId(null);
+  };
+
   const handleModalAddCategory = (name: string, icon: string, password?: string) => {
       const newCategory: Category = {
           id: Date.now().toString(),
@@ -224,62 +260,6 @@ function App() {
       const newCategories = categories.filter(c => c.id !== sourceId);
       updateData(newLinks, newCategories);
       setCategoryModalOpen(false);
-  };
-
-  // Drag and Drop handlers
-  const handleDragStart = (e: React.DragEvent, catId: string) => {
-      setDraggedCategoryId(catId);
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', catId);
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetCatId: string) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-
-      if (!draggedCategoryId || draggedCategoryId === targetCatId) return;
-
-      // 只有当位置真正改变时才更新
-      if (dragOverCategoryId !== targetCatId) {
-          // 实时交换位置以实现移动动画
-          const newCategories = [...categories];
-          const draggedIndex = newCategories.findIndex(c => c.id === draggedCategoryId);
-          const targetIndex = newCategories.findIndex(c => c.id === targetCatId);
-
-          const draggedItem = newCategories[draggedIndex];
-          newCategories.splice(draggedIndex, 1);
-          newCategories.splice(targetIndex, 0, draggedItem);
-          setCategories(newCategories);
-      }
-
-      setDragOverCategoryId(targetCatId);
-  };
-
-  const handleDragLeave = (e: React.DragEvent, _targetCatId: string) => {
-      const relatedTarget = e.relatedTarget as HTMLElement;
-      const currentTarget = e.currentTarget;
-
-      // 只有真正离开元素时才清除状态
-      if (!currentTarget.contains(relatedTarget)) {
-          setDragOverCategoryId(null);
-      }
-  };
-
-  const handleDrop = (e: React.DragEvent, _targetCatId: string) => {
-      e.preventDefault();
-
-      if (!draggedCategoryId) return;
-
-      // 保存当前排序到服务器
-      updateData(links, categories);
-
-      setDragOverCategoryId(null);
-      setDraggedCategoryId(null);
-  };
-
-  const handleDragEnd = (e: React.DragEvent, _catId: string) => {
-      setDragOverCategoryId(null);
-      setDraggedCategoryId(null);
   };
 
   // --- Helpers ---
@@ -660,6 +640,56 @@ function App() {
       return !unlockedCategoryIds.has(catId);
   };
 
+  // Sortable Category Item Component
+  const SortableCategoryItem = ({ cat, isSorting }: { cat: Category, isSorting: boolean }) => {
+      const {
+          attributes,
+          listeners,
+          setNodeRef,
+          transform,
+          transition,
+          isDragging,
+      } = useSortable({ id: cat.id, disabled: !isSorting });
+
+      const style = {
+          transform: CSS.Transform.toString(transform),
+          transition,
+      };
+
+      const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
+      const isEmoji = cat.icon && cat.icon.length <= 4 && !/^[a-zA-Z]+$/.test(cat.icon);
+
+      return (
+          <div
+              ref={setNodeRef}
+              style={style}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group relative ${
+                  activeCategory === cat.id
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+              } ${isSorting ? 'cursor-move' : 'cursor-pointer'} ${isDragging ? 'opacity-50' : ''}`}
+              onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (isSorting || categoryModalOpen) return;
+                  let x = e.clientX;
+                  let y = e.clientY;
+                  if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+                  if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
+                  setCategoryContextMenu({ x, y, category: cat });
+              }}
+              onClick={() => !isSorting && scrollToCategory(cat.id)}
+              {...attributes}
+              {...listeners}
+          >
+              <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${activeCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                  {isLocked ? <Lock size={16} className="text-amber-500" /> : (isEmoji ? <span className="text-base leading-none">{cat.icon}</span> : <Icon name={cat.icon} size={16} />)}
+              </div>
+              <span className="truncate flex-1 text-left">{cat.name}</span>
+          </div>
+      );
+  };
+
   const pinnedLinks = useMemo(() => {
       // 始终显示所有置顶链接
       return links.filter(l => l.pinned === true && !isCategoryLocked(l.categoryId));
@@ -741,22 +771,6 @@ function App() {
 
   return (
     <>
-      <style>{`
-        .category-item {
-          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                      opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .category-item.sorting {
-          border: 1px dashed #3b82f6 !important;
-        }
-        .category-item.dragging {
-          opacity: 0.5;
-          transform: scale(1.02);
-          box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3) !important;
-          position: relative;
-          z-index: 10;
-        }
-      `}</style>
       <div className="flex h-screen overflow-hidden text-slate-900 dark:text-slate-50">
       
       {/* Right Click Context Menu */}
@@ -946,6 +960,27 @@ function App() {
         categories={categories}
       />
 
+      {/* Drag Overlay for sorting */}
+      <DragOverlay>
+        {activeId ? (
+          <div className="w-56 bg-blue-50 dark:bg-blue-900/30 rounded-xl border-2 border-blue-300 dark:border-blue-600 flex items-center gap-3 px-4 py-2.5">
+            {(() => {
+              const cat = categories.find(c => c.id === activeId);
+              if (!cat) return null;
+              const isEmoji = cat.icon && cat.icon.length <= 4 && !/^[a-zA-Z]+$/.test(cat.icon);
+              return (
+                <>
+                  <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-800 flex items-center justify-center">
+                    {isEmoji ? <span className="text-base leading-none">{cat.icon}</span> : <Icon name={cat.icon} size={16} className="text-blue-600 dark:text-blue-400" />}
+                  </div>
+                  <span className="truncate flex-1 text-left text-blue-600 dark:text-blue-400 font-medium">{cat.name}</span>
+                </>
+              );
+            })()}
+          </div>
+        ) : null}
+      </DragOverlay>
+
       {/* Sidebar Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -1000,45 +1035,14 @@ function App() {
                ) : null}
             </div>
 
-            {categories.map(cat => {
-                const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
-                const isEmoji = cat.icon && cat.icon.length <= 4 && !/^[a-zA-Z]+$/.test(cat.icon);
-                const isSorting = isSortingCategory === 'all';
-
-                return (
-                  <div
-                    key={cat.id}
-                    draggable={isSorting}
-                    onDragStart={(e) => handleDragStart(e, cat.id)}
-                    onDragOver={(e) => handleDragOver(e, cat.id)}
-                    onDragLeave={(e) => handleDragLeave(e, cat.id)}
-                    onDrop={(e) => handleDrop(e, cat.id)}
-                    onDragEnd={(e) => handleDragEnd(e, cat.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group relative category-item ${
-                      activeCategory === cat.id
-                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    } ${isSorting ? 'sorting cursor-move' : 'cursor-pointer'} ${draggedCategoryId === cat.id ? 'dragging' : ''}`}
-                    onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (isSorting || categoryModalOpen) return;
-                        let x = e.clientX;
-                        let y = e.clientY;
-                        // Boundary adjustment
-                        if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
-                        if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
-                        setCategoryContextMenu({ x, y, category: cat });
-                    }}
-                    onClick={() => !isSorting && scrollToCategory(cat.id)}
-                  >
-                    <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${activeCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                      {isLocked ? <Lock size={16} className="text-amber-500" /> : (isEmoji ? <span className="text-base leading-none">{cat.icon}</span> : <Icon name={cat.icon} size={16} />)}
-                    </div>
-                    <span className="truncate flex-1 text-left">{cat.name}</span>
-                  </div>
-                );
-            })}
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+                <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    {categories.map(cat => {
+                        const isSorting = isSortingCategory === 'all';
+                        return <SortableCategoryItem key={cat.id} cat={cat} isSorting={isSorting} />;
+                    })}
+                </SortableContext>
+            </DndContext>
         </div>
 
         <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
