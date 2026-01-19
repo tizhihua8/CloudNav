@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lock, Folder, Star, Heart, Home, Book, Code, Globe, Music, Video, Image, File, Link as LinkIcon, Settings, Search, Mail, Phone, User, Calendar, Clock, Map, Camera, Headphones, Terminal, Database, Server, Cloud, Download, Upload, Share, Copy, Trash, Edit, Check, Plus, Minus, Bookmark } from 'lucide-react';
+import { X, Lock, Folder, Star, Save, BookOpen, Book, Gamepad2, Image, Wallpaper, SquarePlay, Headphones, CodeXml, SquareTerminal, Archive, CaseSensitive, FileText, PanelsTopLeft, Shield, Gem, CircleDollarSign, Hamburger, Palette, SwatchBook, Baseline, Camera, Aperture, Film, BriefcaseBusiness, PencilRuler, MapPinned } from 'lucide-react';
 import { Category } from '../types';
 
 export type ModalMode = 'add' | 'edit' | 'merge';
@@ -16,49 +16,43 @@ interface CategoryModalProps {
 }
 
 const iconList = [
-  'Folder', 'Star', 'Heart', 'Home', 'Book', 'Code', 'Globe', 'Music', 'Video', 'Image',
-  'File', 'Link', 'Settings', 'Search', 'Mail', 'Phone', 'User', 'Calendar', 'Clock', 'Map',
-  'Camera', 'Headphones', 'Terminal', 'Database', 'Server', 'Cloud', 'Download', 'Upload',
-  'Share', 'Copy', 'Trash', 'Edit', 'Check', 'Plus', 'Minus', 'Bookmark'
+  'Folder', 'Save', 'Star',
+  'BookOpen', 'Book',
+  'Gamepad2', 'Image', 'Wallpaper', 'SquarePlay', 'Headphones', 'Aperture', 'Film',
+  'CodeXml', 'SquareTerminal', 'Archive', 'CaseSensitive', 'FileText', 'PanelsTopLeft', 'Shield',
+  'Gem', 'CircleDollarSign', 'Hamburger', 'Palette', 'SwatchBook', 'Baseline', 'Camera', 'BriefcaseBusiness', 'PencilRuler', 'MapPinned'
 ];
 
 const iconComponents: { [key: string]: any } = {
   Folder,
+  Save,
   Star,
-  Heart,
-  Home,
+  BookOpen,
   Book,
-  Code,
-  Globe,
-  Music,
-  Video,
+  Gamepad2,
   Image,
-  File,
-  Link: LinkIcon,
-  Settings,
-  Search,
-  Mail,
-  Phone,
-  User,
-  Calendar,
-  Clock,
-  Map,
-  Camera,
+  Wallpaper,
+  SquarePlay,
   Headphones,
-  Terminal,
-  Database,
-  Server,
-  Cloud,
-  Download,
-  Upload,
-  Share,
-  Copy,
-  Trash,
-  Edit,
-  Check,
-  Plus,
-  Minus,
-  Bookmark,
+  CodeXml,
+  SquareTerminal,
+  Archive,
+  CaseSensitive,
+  FileText,
+  PanelsTopLeft,
+  Shield,
+  Gem,
+  CircleDollarSign,
+  Hamburger,
+  Palette,
+  SwatchBook,
+  Baseline,
+  Camera,
+  Aperture,
+  Film,
+  BriefcaseBusiness,
+  PencilRuler,
+  MapPinned,
 };
 
 const IconDisplay = ({ iconName, size = 20 }: { iconName: string, size?: number }) => {
