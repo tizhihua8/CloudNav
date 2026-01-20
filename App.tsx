@@ -15,6 +15,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -767,7 +768,6 @@ function App() {
       const style = {
           transform: CSS.Transform.toString(transform),
           transition: isDragging ? 'none' : transition,
-          scale: isDragging ? 1.05 : 1,
       };
 
       const iconDisplay = link.icon ? (
@@ -788,7 +788,7 @@ function App() {
         <div
             ref={setNodeRef}
             style={style}
-            className={`group relative flex flex-col ${isSimple ? 'p-2' : 'p-3'} bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-100 dark:border-slate-700/50 shadow-sm hover:shadow-lg hover:border-blue-200 dark:hover:border-slate-600 hover:-translate-y-0.5 transition-all duration-300 ease-in-out hover:bg-blue-50 dark:hover:bg-slate-750 ${isSorting ? 'cursor-move border-2 border-dashed border-blue-400 dark:border-blue-500' : 'cursor-pointer'} ${isDragging ? 'opacity-0 scale-105 shadow-2xl' : ''}`}
+            className={`group relative flex flex-col ${isSimple ? 'p-2' : 'p-3'} bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm hover:shadow-lg hover:border-blue-200 dark:hover:border-slate-600 hover:-translate-y-0.5 transition-all duration-200 hover:bg-blue-50 dark:hover:bg-slate-750 ${isSorting ? 'cursor-move border border-blue-400 dark:border-blue-500' : 'cursor-pointer'} ${isDragging ? 'opacity-0' : ''}`}
             title={link.description || link.url}
             {...attributes}
             {...listeners}
@@ -1521,7 +1521,7 @@ function App() {
                         ) : (
                             isSortingLinks === cat.id ? (
                                 <DndContext sensors={sensors} onDragStart={handleLinkDragStart} onDragEnd={handleLinkDragEnd}>
-                                    <SortableContext items={catLinks.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                                    <SortableContext items={catLinks.map(l => l.id)} strategy={rectSortingStrategy}>
                                         <div className={`grid gap-3 ${siteSettings.cardStyle === 'simple' ? 'grid-cols-2 md:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'}`}>
                                             {catLinks.map(link => <SortableLinkCard key={link.id} link={link} isSorting={true} />)}
                                         </div>
