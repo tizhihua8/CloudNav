@@ -85,7 +85,22 @@ export async function onRequest(context: { request: Request; env: Env;[key: stri
   if (request.method === 'POST') {
     try {
       const providedPassword = request.headers.get('x-auth-password');
-      const serverPassword = env.PASSWORD;
+      let serverPassword = env.PASSWORD;
+
+      const kv = getKV(env);
+
+      // --- 密码兜底与配置 logic ---
+      if (kv) {
+        try {
+          const storedData = await kv.get('app_data', 'json') as any;
+          // 如果用户在设置里自定义了密码，优先使用它
+          if (storedData && storedData.settings && storedData.settings.customPassword) {
+            serverPassword = storedData.settings.customPassword;
+          }
+        } catch (e) {
+          console.error("Failed to read server password from KV", e);
+        }
+      }
 
       if (!serverPassword) {
         return new Response(JSON.stringify({ error: 'Server misconfigured: PASSWORD not set' }), {
@@ -116,7 +131,6 @@ export async function onRequest(context: { request: Request; env: Env;[key: stri
 
       const body = await request.json();
 
-      const kv = getKV(env);
       const isDebug = env.DEBUG_MODE === 'true';
 
       if (!kv) {

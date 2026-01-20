@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Save, Bot, Key, Globe, Sparkles, PauseCircle, Wrench, Box, Copy, Check, LayoutTemplate, RefreshCw, Info, Download, Sidebar, Keyboard, MousePointerClick, AlertTriangle, Package, Zap, Menu } from 'lucide-react';
+import { X, Save, Bot, Key, Globe, Sparkles, PauseCircle, Wrench, Box, Copy, Check, LayoutTemplate, RefreshCw, Info, Download, Sidebar, Keyboard, MousePointerClick, AlertTriangle, Package, Zap, Menu, PieChart, Activity, ShieldCheck, Clock, Trash } from 'lucide-react';
 import { AIConfig, LinkItem, Category, SiteSettings } from '../types';
 import { generateLinkDescription } from '../services/geminiService';
 import JSZip from 'jszip';
@@ -54,14 +54,22 @@ const generateSvgIcon = (text: string, color1: string, color2: string) => {
 const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, config, siteSettings, onSave, links, categories, onUpdateLinks
 }) => {
-    const [activeTab, setActiveTab] = useState<'site' | 'ai' | 'tools'>('site');
+    const [activeTab, setActiveTab] = useState<'site' | 'ai' | 'tools' | 'data'>('site');
     const [localConfig, setLocalConfig] = useState<AIConfig>(config);
+
+    // --- Data Management & Cleanup States ---
+    const [isScanning, setIsScanning] = useState(false);
+    const [scanTimeout, setScanTimeout] = useState(5000); // 默认 5000ms
+    const [scanResults, setScanResults] = useState<{ id: string, status: 'ok' | 'error' | 'timeout' }[]>([]);
+    const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
+    const cancelScanRef = useRef(false);
 
     const [localSiteSettings, setLocalSiteSettings] = useState<SiteSettings>(() => ({
         title: siteSettings?.title || '十四的导航',
         navTitle: siteSettings?.navTitle || '十四 CloudNav',
         favicon: siteSettings?.favicon || '',
-        cardStyle: siteSettings?.cardStyle || 'detailed'
+        cardStyle: siteSettings?.cardStyle || 'detailed',
+        customPassword: siteSettings?.customPassword || ''
     }));
 
     const [generatedIcons, setGeneratedIcons] = useState<string[]>([]);
@@ -96,7 +104,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 title: siteSettings?.title || '十四的导航',
                 navTitle: siteSettings?.navTitle || '十四 CloudNav',
                 favicon: siteSettings?.favicon || '',
-                cardStyle: siteSettings?.cardStyle || 'detailed'
+                cardStyle: siteSettings?.cardStyle || 'detailed',
+                customPassword: siteSettings?.customPassword || ''
             };
             setLocalSiteSettings(safeSettings);
             if (generatedIcons.length === 0) {
@@ -128,6 +137,79 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         onSave(localConfig, localSiteSettings);
         onClose();
     };
+
+    // --- Cleanup & User Persona Functions ---
+    const handleCheckLinks = async () => {
+        if (isScanning) return;
+        setIsScanning(true);
+        cancelScanRef.current = false;
+        setScanResults([]);
+        setScanProgress({ current: 0, total: links.length });
+
+        const results: { id: string, status: 'ok' | 'error' | 'timeout' }[] = [];
+
+        for (let i = 0; i < links.length; i++) {
+            if (cancelScanRef.current) break;
+            const link = links[i];
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), scanTimeout);
+
+                // 使用 no-cors 模式尝试探测，虽然无法读内容，但能感知基础连通性
+                // 某些网站禁用了 HEAD，改用 GET 但只取头部
+                const startTime = Date.now();
+                const response = await fetch(link.url, {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                results.push({ id: link.id, status: 'ok' });
+            } catch (err: any) {
+                if (err.name === 'AbortError') {
+                    results.push({ id: link.id, status: 'timeout' });
+                } else {
+                    results.push({ id: link.id, status: 'error' });
+                }
+            }
+
+            setScanResults([...results]);
+            setScanProgress({ current: i + 1, total: links.length });
+        }
+
+        setIsScanning(false);
+    };
+
+    const handleRemoveBrokenLinks = () => {
+        const brokenIds = new Set(scanResults.filter(r => r.status !== 'ok').map(r => r.id));
+        if (brokenIds.size === 0) {
+            alert("未发现需要清理的失效链接");
+            return;
+        }
+
+        if (confirm(`确定要删除这 ${brokenIds.size} 个失效链接吗？删除后点击“保存配置”将同步到云端及扩展插件。`)) {
+            const newLinks = links.filter(l => !brokenIds.has(l.id));
+            onUpdateLinks(newLinks);
+            setScanResults([]);
+            setScanProgress({ current: 0, total: 0 });
+            alert("已在本地清理，请记得点击右下角“保存配置”同步到云端。");
+        }
+    };
+
+    // 用户画像统计
+    const userStats = useMemo(() => {
+        return {
+            totalLinks: links.length,
+            totalCats: categories.length,
+            pinnedCount: links.filter(l => l.pinned).length,
+            avgPerCat: (links.length / (categories.length || 1)).toFixed(1),
+            mostPopCat: [...categories].sort((a, b) =>
+                links.filter(l => l.categoryId === b.id).length - links.filter(l => l.categoryId === a.id).length
+            )[0]?.name || '无'
+        };
+    }, [links, categories]);
 
     const handleBulkGenerate = async () => {
         if (!localConfig.apiKey) {
@@ -822,6 +904,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tabs = [
         { id: 'site', label: '网站设置', icon: LayoutTemplate },
         { id: 'ai', label: 'AI 设置', icon: Bot },
+        { id: 'data', label: '数据与清洗', icon: PieChart },
         { id: 'tools', label: '扩展工具', icon: Wrench },
     ];
 
@@ -836,8 +919,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                                 }`}
                         >
                             <tab.icon size={18} />
@@ -918,253 +1001,268 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         </div>
                                     </div>
                                 </div>
+                                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-2">
+                                        <ShieldCheck size={16} className="text-blue-500" />
+                                        后台管理密码 (动态配置)
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={localSiteSettings.customPassword}
+                                        onChange={(e) => handleSiteChange('customPassword', e.target.value)}
+                                        placeholder="留空则使用部署时的 PASSWORD 环境变量"
+                                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                                    />
+                                    <p className="text-[10px] text-slate-400 mt-1">设置后将覆盖环境变量密码。此密码仅用于 API 验证，不会在前端明文展示。</p>
+                                </div>
+                            </div>
                             </div>
                         )}
 
-                        {/* 2. AI Settings */}
-                        {activeTab === 'ai' && (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">AI 提供商</label>
-                                    <select
-                                        value={localConfig.provider}
-                                        onChange={(e) => handleChange('provider', e.target.value)}
-                                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="gemini">Google Gemini</option>
-                                        <option value="openai">OpenAI Compatible (ChatGPT, DeepSeek, Claude...)</option>
-                                    </select>
+                    {/* 2. AI Settings */}
+                    {activeTab === 'ai' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">AI 提供商</label>
+                                <select
+                                    value={localConfig.provider}
+                                    onChange={(e) => handleChange('provider', e.target.value)}
+                                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="gemini">Google Gemini</option>
+                                    <option value="openai">OpenAI Compatible (ChatGPT, DeepSeek, Claude...)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Key</label>
+                                <div className="relative">
+                                    <Key size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        type="password"
+                                        value={localConfig.apiKey}
+                                        onChange={(e) => handleChange('apiKey', e.target.value)}
+                                        placeholder="sk-..."
+                                        className="w-full pl-10 p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                                    />
                                 </div>
+                                <p className="text-xs text-slate-500 mt-1">Key 仅存储在本地浏览器缓存中，不会发送到我们的服务器。</p>
+                            </div>
 
+                            {localConfig.provider === 'openai' && (
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Key</label>
-                                    <div className="relative">
-                                        <Key size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                        <input
-                                            type="password"
-                                            value={localConfig.apiKey}
-                                            onChange={(e) => handleChange('apiKey', e.target.value)}
-                                            placeholder="sk-..."
-                                            className="w-full pl-10 p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-slate-500 mt-1">Key 仅存储在本地浏览器缓存中，不会发送到我们的服务器。</p>
-                                </div>
-
-                                {localConfig.provider === 'openai' && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Base URL (API 地址)</label>
-                                        <input
-                                            type="text"
-                                            value={localConfig.baseUrl}
-                                            onChange={(e) => handleChange('baseUrl', e.target.value)}
-                                            placeholder="https://api.openai.com/v1"
-                                            className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-                                )}
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">模型名称 (Model Name)</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Base URL (API 地址)</label>
                                     <input
                                         type="text"
-                                        value={localConfig.model}
-                                        onChange={(e) => handleChange('model', e.target.value)}
-                                        placeholder={localConfig.provider === 'gemini' ? "gemini-2.5-flash" : "gpt-3.5-turbo"}
+                                        value={localConfig.baseUrl}
+                                        onChange={(e) => handleChange('baseUrl', e.target.value)}
+                                        placeholder="https://api.openai.com/v1"
                                         className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
+                            )}
 
-                                <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-                                    <h4 className="text-sm font-semibold mb-2 dark:text-slate-200">批量操作</h4>
-                                    {isProcessing ? (
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                                                <span>正在生成描述... ({progress.current}/{progress.total})</span>
-                                                <button onClick={() => { shouldStopRef.current = true; setIsProcessing(false); }} className="text-red-500 flex items-center gap-1 hover:underline">
-                                                    <PauseCircle size={12} /> 停止
-                                                </button>
-                                            </div>
-                                            <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }}></div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={handleBulkGenerate}
-                                            className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 px-3 py-2 rounded-lg transition-colors border border-purple-200 dark:border-purple-800"
-                                        >
-                                            <Sparkles size={16} /> 一键补全所有缺失的描述
-                                        </button>
-                                    )}
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">模型名称 (Model Name)</label>
+                                <input
+                                    type="text"
+                                    value={localConfig.model}
+                                    onChange={(e) => handleChange('model', e.target.value)}
+                                    placeholder={localConfig.provider === 'gemini' ? "gemini-2.5-flash" : "gpt-3.5-turbo"}
+                                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                                />
                             </div>
-                        )}
 
-                        {/* 3. Tools (Extension) - New 3-Step UI */}
-                        {activeTab === 'tools' && (
-                            <div className="space-y-8 animate-in fade-in duration-300">
-
-                                {/* Step 1 */}
-                                <div className="space-y-3">
-                                    <h4 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">1</span>
-                                        输入访问密码
-                                    </h4>
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="text-xs text-slate-500 mb-1 block">API 域名 (自动获取)</label>
-                                                <code className="block w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs text-slate-600 dark:text-slate-400 font-mono truncate">
-                                                    {domain}
-                                                </code>
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-slate-500 mb-1 block">访问密码 (Password)</label>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="text"
-                                                        value={password}
-                                                        readOnly
-                                                        className="flex-1 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-sm outline-none font-mono"
-                                                        placeholder="未登录 / 未设置"
-                                                    />
-                                                    <button onClick={() => handleCopy(password, 'pwd')} className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:border-blue-500 rounded text-slate-600 dark:text-slate-400 transition-colors">
-                                                        {copiedStates['pwd'] ? <Check size={16} /> : <Copy size={16} />}
-                                                    </button>
-                                                </div>
-                                                <p className="text-[10px] text-slate-400 mt-1">此密码对应您部署时设置的 PASSWORD 环境变量。</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Step 2 */}
-                                <div className="space-y-3">
-                                    <h4 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">2</span>
-                                        选择浏览器类型
-                                    </h4>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <button
-                                            onClick={() => setBrowserType('chrome')}
-                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${browserType === 'chrome' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 bg-white dark:bg-slate-800'}`}
-                                        >
-                                            <span className="font-semibold">Chrome / Edge</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setBrowserType('firefox')}
-                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${browserType === 'firefox' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 bg-white dark:bg-slate-800'}`}
-                                        >
-                                            <span className="font-semibold">Mozilla Firefox</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Step 3 */}
-                                <div className="space-y-4">
-                                    <h4 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">3</span>
-                                        配置步骤与代码
-                                    </h4>
-
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
-                                        <h5 className="font-semibold text-sm mb-3 dark:text-slate-200">
-                                            安装指南 ({browserType === 'chrome' ? 'Chrome/Edge' : 'Firefox'}):
-                                        </h5>
-                                        <ol className="list-decimal list-inside text-sm text-slate-600 dark:text-slate-400 space-y-2 leading-relaxed">
-                                            <li>在电脑上新建文件夹 <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-mono text-xs">CloudNav-Pro</code>。</li>
-                                            <li><strong>[重要]</strong> 将下方图标保存为 <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-mono text-xs">icon.png</code>。</li>
-                                            <li>获取插件代码文件：
-                                                <ul className="list-disc list-inside ml-4 mt-1 space-y-1 text-slate-500">
-                                                    <li><strong>方式一 (推荐)：</strong>点击下方的 <span className="text-blue-600 dark:text-blue-400 font-bold">"📦 一键下载所有文件"</span> 按钮，解压到该文件夹。</li>
-                                                    <li><strong>方式二 (备用)：</strong>分别点击下方代码块的 <Download size={12} className="inline" /> 按钮下载或复制 <code className="bg-white dark:bg-slate-900 px-1 rounded">manifest.json</code>, <code className="bg-white dark:bg-slate-900 px-1 rounded">background.js</code> 等文件到该文件夹。</li>
-                                                </ul>
-                                            </li>
-                                            <li>
-                                                打开浏览器扩展管理页面
-                                                {browserType === 'chrome' ? (
-                                                    <> (Chrome: <code className="select-all bg-white dark:bg-slate-900 px-1 rounded">chrome://extensions</code>)</>
-                                                ) : (
-                                                    <> (Firefox: <code className="select-all bg-white dark:bg-slate-900 px-1 rounded">about:debugging</code>)</>
-                                                )}。
-                                            </li>
-                                            <li className="text-blue-600 font-bold">操作关键点：</li>
-                                            <li>1. 开启右上角的 "开发者模式" (Chrome)。</li>
-                                            <li>2. 点击 "加载已解压的扩展程序"，选择包含上述文件的文件夹。</li>
-                                            <li>3. 前往 <code className="select-all bg-white dark:bg-slate-900 px-1 rounded">chrome://extensions/shortcuts</code>。</li>
-                                            <li>4. <strong>[重要]</strong> 找到 "打开/关闭 CloudNav 侧边栏"，设置快捷键 (如 Ctrl+Shift+E)。</li>
-                                        </ol>
-
-                                        <div className="mt-4 mb-4">
-                                            <button
-                                                onClick={handleDownloadZip}
-                                                disabled={isZipping}
-                                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-blue-500/20"
-                                            >
-                                                <Package size={20} />
-                                                {isZipping ? '打包中...' : '📦 一键下载所有文件 (v7.6 Pro)'}
+                            <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
+                                <h4 className="text-sm font-semibold mb-2 dark:text-slate-200">批量操作</h4>
+                                {isProcessing ? (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                                            <span>正在生成描述... ({progress.current}/{progress.total})</span>
+                                            <button onClick={() => { shouldStopRef.current = true; setIsProcessing(false); }} className="text-red-500 flex items-center gap-1 hover:underline">
+                                                <PauseCircle size={12} /> 停止
                                             </button>
                                         </div>
-
-                                        <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded border border-green-200 dark:border-green-900/50 text-sm space-y-2">
-                                            <div className="font-bold flex items-center gap-2"><Zap size={16} /> 完美交互方案 (v7.6):</div>
-                                            <ul className="list-disc list-inside text-xs space-y-1">
-                                                <li><strong>左键 / 快捷键:</strong> 极速打开/关闭侧边栏 (无弹窗延迟)。</li>
-                                                <li><strong>网页右键:</strong> 直接展示分类列表 (支持判重警告)。</li>
-                                                <li><strong>图标右键:</strong> 同上，统一为级联菜单，直接保存。</li>
-                                            </ul>
+                                        <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }}></div>
                                         </div>
                                     </div>
+                                ) : (
+                                    <button
+                                        onClick={handleBulkGenerate}
+                                        className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 px-3 py-2 rounded-lg transition-colors border border-purple-200 dark:border-purple-800"
+                                    >
+                                        <Sparkles size={16} /> 一键补全所有缺失的描述
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
-                                    <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-600">
-                                                {localSiteSettings.favicon ? <img src={localSiteSettings.favicon} className="w-full h-full object-cover" /> : <Globe size={24} className="text-slate-400" />}
+                    {/* 3. Tools (Extension) - New 3-Step UI */}
+                    {activeTab === 'tools' && (
+                        <div className="space-y-8 animate-in fade-in duration-300">
+
+                            {/* Step 1 */}
+                            <div className="space-y-3">
+                                <h4 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">1</span>
+                                    输入访问密码
+                                </h4>
+                                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs text-slate-500 mb-1 block">API 域名 (自动获取)</label>
+                                            <code className="block w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs text-slate-600 dark:text-slate-400 font-mono truncate">
+                                                {domain}
+                                            </code>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 mb-1 block">访问密码 (Password)</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={password}
+                                                    readOnly
+                                                    className="flex-1 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-sm outline-none font-mono"
+                                                    placeholder="未登录 / 未设置"
+                                                />
+                                                <button onClick={() => handleCopy(password, 'pwd')} className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:border-blue-500 rounded text-slate-600 dark:text-slate-400 transition-colors">
+                                                    {copiedStates['pwd'] ? <Check size={16} /> : <Copy size={16} />}
+                                                </button>
                                             </div>
-                                            <div>
-                                                <div className="font-medium text-sm dark:text-white">插件图标 (icon.png)</div>
-                                                <div className="text-xs text-slate-500">请保存此图片为 icon.png</div>
-                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1">此密码对应您部署时设置的 PASSWORD 环境变量。</p>
                                         </div>
-                                        <button
-                                            onClick={handleDownloadIcon}
-                                            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 rounded-lg transition-colors"
-                                        >
-                                            <Download size={16} /> 下载图标
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200 pt-2 border-t border-slate-100 dark:border-slate-700">
-                                            <Sidebar size={18} className="text-purple-500" /> 核心配置
-                                        </div>
-                                        {renderCodeBlock('manifest.json', getManifestJson())}
-                                        {renderCodeBlock('background.js', extBackgroundJs)}
-
-                                        <div className="flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200 pt-2 border-t border-slate-100 dark:border-slate-700">
-                                            <Keyboard size={18} className="text-green-500" /> 侧边栏导航功能 (Sidebar)
-                                        </div>
-                                        {renderCodeBlock('sidebar.html', extSidebarHtml)}
-                                        {renderCodeBlock('sidebar.js', extSidebarJs)}
                                     </div>
                                 </div>
                             </div>
-                        )}
 
-                    </div>
+                            {/* Step 2 */}
+                            <div className="space-y-3">
+                                <h4 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">2</span>
+                                    选择浏览器类型
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => setBrowserType('chrome')}
+                                        className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${browserType === 'chrome' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 bg-white dark:bg-slate-800'}`}
+                                    >
+                                        <span className="font-semibold">Chrome / Edge</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setBrowserType('firefox')}
+                                        className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${browserType === 'firefox' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 bg-white dark:bg-slate-800'}`}
+                                    >
+                                        <span className="font-semibold">Mozilla Firefox</span>
+                                    </button>
+                                </div>
+                            </div>
 
-                    <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end bg-slate-50 dark:bg-slate-800/50 shrink-0">
-                        <button
-                            onClick={handleSave}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20"
-                        >
-                            <Save size={18} /> 保存更改
-                        </button>
-                    </div>
+                            {/* Step 3 */}
+                            <div className="space-y-4">
+                                <h4 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">3</span>
+                                    配置步骤与代码
+                                </h4>
+
+                                <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <h5 className="font-semibold text-sm mb-3 dark:text-slate-200">
+                                        安装指南 ({browserType === 'chrome' ? 'Chrome/Edge' : 'Firefox'}):
+                                    </h5>
+                                    <ol className="list-decimal list-inside text-sm text-slate-600 dark:text-slate-400 space-y-2 leading-relaxed">
+                                        <li>在电脑上新建文件夹 <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-mono text-xs">CloudNav-Pro</code>。</li>
+                                        <li><strong>[重要]</strong> 将下方图标保存为 <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-mono text-xs">icon.png</code>。</li>
+                                        <li>获取插件代码文件：
+                                            <ul className="list-disc list-inside ml-4 mt-1 space-y-1 text-slate-500">
+                                                <li><strong>方式一 (推荐)：</strong>点击下方的 <span className="text-blue-600 dark:text-blue-400 font-bold">"📦 一键下载所有文件"</span> 按钮，解压到该文件夹。</li>
+                                                <li><strong>方式二 (备用)：</strong>分别点击下方代码块的 <Download size={12} className="inline" /> 按钮下载或复制 <code className="bg-white dark:bg-slate-900 px-1 rounded">manifest.json</code>, <code className="bg-white dark:bg-slate-900 px-1 rounded">background.js</code> 等文件到该文件夹。</li>
+                                            </ul>
+                                        </li>
+                                        <li>
+                                            打开浏览器扩展管理页面
+                                            {browserType === 'chrome' ? (
+                                                <> (Chrome: <code className="select-all bg-white dark:bg-slate-900 px-1 rounded">chrome://extensions</code>)</>
+                                            ) : (
+                                                <> (Firefox: <code className="select-all bg-white dark:bg-slate-900 px-1 rounded">about:debugging</code>)</>
+                                            )}。
+                                        </li>
+                                        <li className="text-blue-600 font-bold">操作关键点：</li>
+                                        <li>1. 开启右上角的 "开发者模式" (Chrome)。</li>
+                                        <li>2. 点击 "加载已解压的扩展程序"，选择包含上述文件的文件夹。</li>
+                                        <li>3. 前往 <code className="select-all bg-white dark:bg-slate-900 px-1 rounded">chrome://extensions/shortcuts</code>。</li>
+                                        <li>4. <strong>[重要]</strong> 找到 "打开/关闭 CloudNav 侧边栏"，设置快捷键 (如 Ctrl+Shift+E)。</li>
+                                    </ol>
+
+                                    <div className="mt-4 mb-4">
+                                        <button
+                                            onClick={handleDownloadZip}
+                                            disabled={isZipping}
+                                            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-blue-500/20"
+                                        >
+                                            <Package size={20} />
+                                            {isZipping ? '打包中...' : '📦 一键下载所有文件 (v7.6 Pro)'}
+                                        </button>
+                                    </div>
+
+                                    <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded border border-green-200 dark:border-green-900/50 text-sm space-y-2">
+                                        <div className="font-bold flex items-center gap-2"><Zap size={16} /> 完美交互方案 (v7.6):</div>
+                                        <ul className="list-disc list-inside text-xs space-y-1">
+                                            <li><strong>左键 / 快捷键:</strong> 极速打开/关闭侧边栏 (无弹窗延迟)。</li>
+                                            <li><strong>网页右键:</strong> 直接展示分类列表 (支持判重警告)。</li>
+                                            <li><strong>图标右键:</strong> 同上，统一为级联菜单，直接保存。</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-600">
+                                            {localSiteSettings.favicon ? <img src={localSiteSettings.favicon} className="w-full h-full object-cover" /> : <Globe size={24} className="text-slate-400" />}
+                                        </div>
+                                        <div>
+                                            <div className="font-medium text-sm dark:text-white">插件图标 (icon.png)</div>
+                                            <div className="text-xs text-slate-500">请保存此图片为 icon.png</div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleDownloadIcon}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 rounded-lg transition-colors"
+                                    >
+                                        <Download size={16} /> 下载图标
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200 pt-2 border-t border-slate-100 dark:border-slate-700">
+                                        <Sidebar size={18} className="text-purple-500" /> 核心配置
+                                    </div>
+                                    {renderCodeBlock('manifest.json', getManifestJson())}
+                                    {renderCodeBlock('background.js', extBackgroundJs)}
+
+                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200 pt-2 border-t border-slate-100 dark:border-slate-700">
+                                        <Keyboard size={18} className="text-green-500" /> 侧边栏导航功能 (Sidebar)
+                                    </div>
+                                    {renderCodeBlock('sidebar.html', extSidebarHtml)}
+                                    {renderCodeBlock('sidebar.js', extSidebarJs)}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end bg-slate-50 dark:bg-slate-800/50 shrink-0">
+                    <button
+                        onClick={handleSave}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20"
+                    >
+                        <Save size={18} /> 保存更改
+                    </button>
                 </div>
             </div>
         </div>
+        </div >
     );
 };
 
