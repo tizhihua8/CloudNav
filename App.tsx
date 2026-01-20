@@ -172,17 +172,17 @@ function App() {
   // --- Category Operations ---
 
   const handleAddCategory = () => {
+      setCategoryContextMenu(null);
       if (!authToken) { setIsAuthOpen(true); return; }
       setCategoryModalMode('add');
       setCategoryModalCategory(undefined);
       setCategoryModalOpen(true);
-      setCategoryContextMenu(null);
   };
 
   const handleSortCategory = () => {
+      setCategoryContextMenu(null);
       if (!authToken) { setIsAuthOpen(true); return; }
       setIsSortingCategory('all');
-      setCategoryContextMenu(null);
   };
 
   const handleRenameCategory = (cat: Category) => {
@@ -829,40 +829,45 @@ function App() {
 
       {/* Delete Link Confirmation Modal */}
       {deleteLinkConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md" onClick={() => setDeleteLinkConfirm(null)}>
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 p-8 relative" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setDeleteLinkConfirm(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-            >
-              <X size={20} />
-            </button>
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 text-red-600 dark:text-red-400">
-                <AlertTriangle size={32} />
-              </div>
-              <h2 className="text-xl font-bold dark:text-white">温馨提示</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center mt-2">
-                确定要删除此链接吗？
-              </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">
-                {deleteLinkConfirm.title}
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleConfirmDeleteLink}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-red-500/30 flex items-center justify-center gap-2"
-              >
-                确认删除
-              </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold dark:text-white">删除链接</h3>
               <button
                 onClick={() => setDeleteLinkConfirm(null)}
-                className="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
               >
-                取消
+                <X className="w-5 h-5 dark:text-slate-400" />
               </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                    确定要删除此链接吗？
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                    {deleteLinkConfirm.title}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConfirmDeleteLink}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  确认删除
+                </button>
+                <button
+                  onClick={() => setDeleteLinkConfirm(null)}
+                  className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  取消
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -870,40 +875,45 @@ function App() {
 
       {/* Delete Category Confirmation Modal */}
       {deleteCategoryConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md" onClick={() => setDeleteCategoryConfirm(null)}>
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-700 p-8 relative" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setDeleteCategoryConfirm(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-            >
-              <X size={20} />
-            </button>
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 text-red-600 dark:text-red-400">
-                <AlertTriangle size={32} />
-              </div>
-              <h2 className="text-xl font-bold dark:text-white">温馨提示</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center mt-2">
-                确定要删除分类"{deleteCategoryConfirm.name}"吗？
-              </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">
-                该分类下的 {links.filter(l => l.categoryId === deleteCategoryConfirm.id).length} 个链接将一并删除，此操作不可恢复。
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleConfirmDeleteCategory}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-red-500/30 flex items-center justify-center gap-2"
-              >
-                确认删除
-              </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold dark:text-white">删除分类</h3>
               <button
                 onClick={() => setDeleteCategoryConfirm(null)}
-                className="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
               >
-                取消
+                <X className="w-5 h-5 dark:text-slate-400" />
               </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                    确定要删除分类"{deleteCategoryConfirm.name}"吗？
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                    该分类下的 {links.filter(l => l.categoryId === deleteCategoryConfirm.id).length} 个链接将一并删除，此操作不可恢复。
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConfirmDeleteCategory}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  确认删除
+                </button>
+                <button
+                  onClick={() => setDeleteCategoryConfirm(null)}
+                  className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  取消
+                </button>
+              </div>
             </div>
           </div>
         </div>
