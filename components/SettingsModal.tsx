@@ -332,11 +332,24 @@ chrome.runtime.onInstalled.addListener(() => {
   refreshCache().then(buildMenus);
 });
 
-// 监听存储变化，实时更新缓存和菜单
+// 监听存储变化
 chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.cloudnav_data) {
+    if (area === 'local' && (changes.cloudnav_data || changes.cloudnav_auth)) {
         refreshCache().then(buildMenus);
     }
+});
+
+// 监听安装事件
+chrome.runtime.onInstalled.addListener(() => {
+    if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+        chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
+    }
+    refreshCache().then(buildMenus);
+});
+
+// 监听启动事件
+chrome.runtime.onStartup.addListener(() => {
+    refreshCache().then(buildMenus);
 });
 
 async function refreshCache() {
@@ -367,21 +380,27 @@ chrome.runtime.onConnect.addListener((port) => {
 
 chrome.action.onClicked.addListener(async (tab) => {
     const windowId = tab.windowId;
-    const existingPort = windowPorts[windowId];
-
-    if (existingPort) {
-        try {
-            existingPort.postMessage({ action: 'close_panel' });
-        } catch (e) {
-            delete windowPorts[windowId];
-            chrome.sidePanel.open({ windowId });
+    
+    // 检查是否支持 SidePanel API
+    if (chrome.sidePanel && typeof chrome.sidePanel.open === 'function') {
+        const existingPort = windowPorts[windowId];
+        if (existingPort) {
+            try {
+                existingPort.postMessage({ action: 'close_panel' });
+            } catch (e) {
+                delete windowPorts[windowId];
+                chrome.sidePanel.open({ windowId }).catch(() => {
+                    chrome.tabs.create({ url: CONFIG.apiBase });
+                });
+            }
+        } else {
+            chrome.sidePanel.open({ windowId }).catch(() => {
+                chrome.tabs.create({ url: CONFIG.apiBase });
+            });
         }
     } else {
-        try {
-            await chrome.sidePanel.open({ windowId: windowId });
-        } catch (e) {
-            console.error('Failed to open sidebar', e);
-        }
+        // 降级：如果不支持侧边栏，直接打开网页版
+        chrome.tabs.create({ url: CONFIG.apiBase });
     }
 });
 
