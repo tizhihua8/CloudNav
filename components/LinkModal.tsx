@@ -11,10 +11,11 @@ interface LinkModalProps {
   categories: Category[];
   existingLinks?: LinkItem[];
   initialData?: LinkItem;
+  defaultCategoryId?: string;
   aiConfig: AIConfig;
 }
 
-const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, categories, existingLinks, initialData, aiConfig }) => {
+const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, categories, existingLinks, initialData, defaultCategoryId, aiConfig }) => {
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [iconUrl, setIconUrl] = useState('');
@@ -22,10 +23,10 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, categori
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'common');
   const [pinned, setPinned] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   // New State for Icon Auto-fetch
   const [autoFetchIcon, setAutoFetchIcon] = useState(true);
-  
+
   const [duplicateWarning, setDuplicateWarning] = useState('');
 
   useEffect(() => {
@@ -44,13 +45,13 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, categori
         setUrl('');
         setIconUrl('');
         setDescription('');
-        setCategoryId(categories[0]?.id || 'common');
+        setCategoryId(defaultCategoryId || categories[0]?.id || 'common');
         setPinned(false);
         setAutoFetchIcon(true);
       }
       setDuplicateWarning('');
     }
-  }, [isOpen, initialData, categories]);
+  }, [isOpen, initialData, defaultCategoryId, categories]);
 
   // Logic to fetch icon
   const fetchIconFromUrl = (targetUrl: string) => {
