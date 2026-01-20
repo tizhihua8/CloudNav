@@ -329,27 +329,19 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
   
   // 初始化菜单
-  refreshCache().then(buildMenus);
+  scheduleBuildMenus();
 });
 
 // 监听存储变化
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && (changes.cloudnav_data || changes.cloudnav_auth)) {
-        refreshCache().then(buildMenus);
+        refreshCache().then(scheduleBuildMenus);
     }
-});
-
-// 监听安装事件
-chrome.runtime.onInstalled.addListener(() => {
-    if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
-        chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
-    }
-    refreshCache().then(buildMenus);
 });
 
 // 监听启动事件
 chrome.runtime.onStartup.addListener(() => {
-    refreshCache().then(buildMenus);
+    refreshCache().then(scheduleBuildMenus);
 });
 
 async function refreshCache() {
@@ -406,9 +398,18 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 // --- 3. 统一菜单逻辑 (核心功能) ---
 
+// 防抖构建菜单，避免报错 "Cannot create item with duplicate id"
+let buildTimer;
+function scheduleBuildMenus() {
+    clearTimeout(buildTimer);
+    buildTimer = setTimeout(buildMenus, 200);
+}
+
 // 构建菜单结构
 function buildMenus() {
     chrome.contextMenus.removeAll(() => {
+        if (chrome.runtime.lastError) { /* ignore cleanup errors */ }
+        
         // 创建一个统一的根菜单，同时支持 "page" (网页右键), "link" (链接右键), "action" (图标右键)
         chrome.contextMenus.create({
             id: "cloudnav_root",
@@ -507,6 +508,7 @@ async function saveLink(title, url, categoryId, icon = '') {
     }
 
     try {
+        console.log("Preparing to save:", title, url, "to", CONFIG.apiBase);
         const res = await fetch(\`\${CONFIG.apiBase}/api/link\`, {
             method: 'POST',
             headers: { 
