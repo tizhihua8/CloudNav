@@ -95,17 +95,20 @@ export async function onRequest(context: { request: Request; env: Env;[key: stri
       }
 
       if (providedPassword !== serverPassword) {
-        // 临时调试信息 - 部署后请删除此段
-        return new Response(JSON.stringify({
-          error: 'Unauthorized',
-          debug: {
+        const isDebug = env.DEBUG_MODE === 'true';
+        const errorResponse: any = { error: 'Unauthorized' };
+
+        if (isDebug) {
+          errorResponse.debug = {
             providedLength: providedPassword?.length || 0,
             serverLength: serverPassword?.length || 0,
             providedFirst3: providedPassword?.substring(0, 3) || '',
             serverFirst3: serverPassword?.substring(0, 3) || '',
             match: providedPassword === serverPassword
-          }
-        }), {
+          };
+        }
+
+        return new Response(JSON.stringify(errorResponse), {
           status: 401,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -114,18 +117,20 @@ export async function onRequest(context: { request: Request; env: Env;[key: stri
       const body = await request.json();
 
       const kv = getKV(env);
+      const isDebug = env.DEBUG_MODE === 'true';
+
       if (!kv) {
-        // 临时调试信息 - 帮助诊断 KV 绑定问题
-        return new Response(JSON.stringify({
-          error: 'KV storage not available',
-          debug: {
+        const errorResponse: any = { error: 'KV storage not available' };
+        if (isDebug) {
+          errorResponse.debug = {
             hasCloudnavKV: !!env.CLOUDNAV_KV,
             envKeys: Object.keys(env),
             kvType: typeof env.CLOUDNAV_KV,
             kvValue: env.CLOUDNAV_KV ? 'exists' : 'null/undefined',
             contextKeys: Object.keys(context)
-          }
-        }), {
+          };
+        }
+        return new Response(JSON.stringify(errorResponse), {
           status: 500,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
