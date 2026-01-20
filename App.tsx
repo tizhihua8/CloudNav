@@ -1554,7 +1554,7 @@ function App() {
                                             )}
                                           </div>
                                         );
-                                      })()}
+                                      })() : null}
                                     </DragOverlay>
                                 </DndContext>
                             ) : (
