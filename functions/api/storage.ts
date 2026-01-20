@@ -70,7 +70,17 @@ export async function onRequest(context: { request: Request; env: Env }) {
       }
 
       if (providedPassword !== serverPassword) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        // 临时调试信息 - 部署后请删除此段
+        return new Response(JSON.stringify({
+          error: 'Unauthorized',
+          debug: {
+            providedLength: providedPassword?.length || 0,
+            serverLength: serverPassword?.length || 0,
+            providedFirst3: providedPassword?.substring(0, 3) || '',
+            serverFirst3: serverPassword?.substring(0, 3) || '',
+            match: providedPassword === serverPassword
+          }
+        }), {
           status: 401,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
