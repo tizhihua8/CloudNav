@@ -348,10 +348,14 @@ function App() {
         localStorage.removeItem(AUTH_KEY);
         setIsAuthOpen(true);
         setSyncStatus('error');
+        alert('登录已过期或密码错误，请重新登录后再同步');
         return false;
       }
 
-      if (!response.ok) throw new Error('Network response was not ok');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || '服务器同步失败');
+      }
 
       setSyncStatus('saved');
       setTimeout(() => setSyncStatus('idle'), 2000);
@@ -359,8 +363,88 @@ function App() {
     } catch (error) {
       console.error("Sync failed", error);
       setSyncStatus('error');
+      alert(`保存失败: ${error instanceof Error ? error.message : '网络异常'}。您的改动仅保存在本地，刷新后可能会丢失。`);
       return false;
     }
+  };
+
+  const parseBookmarksHTML = (html: string) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const links: LinkItem[] = [];
+    const categories: Category[] = [...DEFAULT_CATEGORIES];
+
+    // 简单的解析逻辑：提取所有 A 标签
+    const aTags = doc.querySelectorAll('a');
+    aTags.forEach((a, index) => {
+      const href = a.getAttribute('href');
+      const title = a.textContent || '未命名书签';
+      if (href && href.startsWith('http')) {
+        // 尝试寻找父级目录名作为分类
+        let categoryName = '未分类';
+        let parent = a.parentElement;
+        while (parent && parent.tagName !== 'DL') {
+          const h3 = parent.previousElementSibling;
+          if (h3 && h3.tagName === 'H3') {
+            categoryName = h3.textContent || '未分类';
+            break;
+          }
+          parent = parent.parentElement;
+        }
+
+        let cat = categories.find(c => c.name === categoryName);
+        if (!cat) {
+          cat = { id: `cat-${Date.now()}-${links.length}`, name: categoryName, icon: 'Folder' };
+          categories.push(cat);
+        }
+
+        links.push({
+          id: `link-${Date.now()}-${index}`,
+          title,
+          url: href,
+          categoryId: cat.id,
+          description: '',
+          icon: `https://www.google.com/s2/favicons?domain=${new URL(href).hostname}`,
+          createdAt: Date.now()
+        });
+      }
+    });
+
+    return { links, categories };
+  };
+
+  const handleImportHTML = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const html = event.target?.result as string;
+      const { links: newLinks, categories: newCats } = parseBookmarksHTML(html);
+      if (newLinks.length > 0) {
+        if (confirm(`成功解析到 ${newLinks.length} 个书签，是否合并到当前列表？`)) {
+          // 合并逻辑
+          const mergedCategories = [...categories];
+          newCats.forEach(nc => {
+            if (!mergedCategories.find(c => c.name === nc.name)) mergedCategories.push(nc);
+          });
+          const mergedLinks = [...links];
+          newLinks.forEach(nl => {
+            // 根据 URL 去重
+            if (!mergedLinks.find(l => l.url === nl.url)) {
+              // 修正 categoryId 映射
+              const matchedCat = mergedCategories.find(c => c.name === newCats.find(nc => nc.id === nl.categoryId)?.name);
+              nl.categoryId = matchedCat?.id || 'common';
+              mergedLinks.push(nl);
+            }
+          });
+          updateData(mergedLinks, mergedCategories);
+        }
+      } else {
+        alert('未能识别书签内容，请确保文件是合法的浏览器 HTML 导出文件。');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset
   };
 
   const updateData = (newLinks: LinkItem[], newCategories: Category[], newSettings: SiteSettings = siteSettings) => {
@@ -721,8 +805,8 @@ function App() {
         ref={setNodeRef}
         style={style}
         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl group relative ${activeCategory === cat.id
-            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
-            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
           } ${isSorting ? 'cursor-move border-2 border-dashed border-blue-400 dark:border-blue-500' : 'border-2 border-transparent cursor-pointer'} ${isDragging ? 'opacity-0' : ''}`}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -1177,8 +1261,8 @@ function App() {
             <button
               onClick={() => scrollToCategory('all')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeCategory === 'all'
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
             >
               <div className="p-1"><Icon name="LayoutGrid" size={18} /></div>
@@ -1344,8 +1428,8 @@ function App() {
                     <button
                       onClick={() => setSearchMode('local')}
                       className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${searchMode === 'local'
-                          ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                        ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                         }`}
                     >
                       站内
@@ -1353,8 +1437,8 @@ function App() {
                     <button
                       onClick={() => setSearchMode('external')}
                       className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${searchMode === 'external'
-                          ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                        ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                         }`}
                     >
                       站外
@@ -1391,8 +1475,8 @@ function App() {
                                     setShowEngineSelector(false);
                                   }}
                                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeEngineId === engine.id
-                                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                                     }`}
                                 >
                                   {engine.icon?.startsWith('http') ? (
@@ -1632,6 +1716,23 @@ function App() {
             </div>
           </div>
         </main>
+
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          config={aiConfig}
+          siteSettings={siteSettings}
+          onSave={(config, settings) => {
+            setAiConfig(config);
+            localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+            updateData(links, categories, settings);
+            setIsSettingsModalOpen(false);
+          }}
+          links={links}
+          categories={categories}
+          onUpdateLinks={(newLinks) => updateData(newLinks, categories)}
+          onImportHTML={handleImportHTML}
+        />
 
         <LinkModal
           isOpen={isModalOpen}

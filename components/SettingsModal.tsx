@@ -14,6 +14,7 @@ interface SettingsModalProps {
     links: LinkItem[];
     categories: Category[];
     onUpdateLinks: (links: LinkItem[]) => void;
+    onImportHTML: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 // 辅助函数：生成随机 HSL 颜色
@@ -52,7 +53,7 @@ const generateSvgIcon = (text: string, color1: string, color2: string) => {
 };
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
-    isOpen, onClose, config, siteSettings, onSave, links, categories, onUpdateLinks
+    isOpen, onClose, config, siteSettings, onSave, links, categories, onUpdateLinks, onImportHTML
 }) => {
     const [activeTab, setActiveTab] = useState<'site' | 'ai' | 'tools' | 'data'>('site');
     const [localConfig, setLocalConfig] = useState<AIConfig>(config);
@@ -1183,6 +1184,51 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Import/Export */}
+                                <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+                                    <div>
+                                        <h4 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                            <Download size={18} className="text-blue-500" />
+                                            数据备份与导入
+                                        </h4>
+                                        <p className="text-xs text-slate-500">支持从其他浏览器导入书签或导出 JSON 备份。</p>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            onClick={() => document.getElementById('html-import-input')?.click()}
+                                            className="px-4 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors flex items-center gap-2"
+                                        >
+                                            <Globe size={16} className="text-blue-500" />
+                                            导入浏览器书签 (HTML)
+                                        </button>
+                                        <input
+                                            id="html-import-input"
+                                            type="file"
+                                            accept=".html"
+                                            onChange={onImportHTML}
+                                            className="hidden"
+                                        />
+
+                                        <button
+                                            onClick={() => {
+                                                const data = JSON.stringify({ links, settings: localSiteSettings }, null, 2);
+                                                const blob = new Blob([data], { type: 'application/json' });
+                                                const url = URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = `cloudnav-backup-${new Date().toISOString().split('T')[0]}.json`;
+                                                a.click();
+                                            }}
+                                            className="px-4 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors flex items-center gap-2"
+                                        >
+                                            <Package size={16} className="text-purple-500" />
+                                            导出 JSON 备份
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <p className="text-[10px] text-slate-400 flex items-center gap-1"><Info size={10} />注意：因浏览器 CORS 策略限制，仅能作为基础连通性参考。严格测试建议使用插件版扫描。</p>
                             </div>
                         )}
