@@ -1,6 +1,9 @@
 interface Env {
   CLOUDNAV_KV?: any;
+  EDGEONE_KV?: any;
   PASSWORD: string;
+  // EdgeOne 可能使用的其他 KV 访问方式
+  [key: string]: any;
 }
 
 const corsHeaders = {
@@ -9,7 +12,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, x-auth-password',
 };
 
-export async function onRequest(context: { request: Request; env: Env }) {
+// 获取 KV 实例的辅助函数，支持多种命名方式
+function getKV(env: Env) {
+  // 尝试从 env 对象获取（Cloudflare 方式）
+  if (env.CLOUDNAV_KV) return env.CLOUDNAV_KV;
+  if (env.EDGEONE_KV) return env.EDGEONE_KV;
+  if (env.CLOUDNAV_DB) return env.CLOUDNAV_DB;
+
+  // 尝试从全局作用域获取（EdgeOne 方式）
+  try {
+    // @ts-ignore - EdgeOne 可能将 KV 绑定为全局变量
+    if (typeof CLOUDNAV_KV !== 'undefined') return CLOUDNAV_KV;
+  } catch (e) { }
+
+  try {
+    // @ts-ignore
+    if (typeof CLOUDNAV_DB !== 'undefined') return CLOUDNAV_DB;
+  } catch (e) { }
+
+  return null;
+}
+
+export async function onRequest(context: { request: Request; env: Env;[key: string]: any }) {
   const { request, env } = context;
 
   if (request.method === 'OPTIONS') {
@@ -22,11 +46,12 @@ export async function onRequest(context: { request: Request; env: Env }) {
   if (request.method === 'GET') {
     try {
       let data = null;
-      if (env.CLOUDNAV_KV) {
+      const kv = getKV(env);
+      if (kv) {
         try {
-          data = await env.CLOUDNAV_KV.get('app_data', 'json');
+          data = await kv.get('app_data', 'json');
         } catch (e) {
-          data = await env.CLOUDNAV_KV.get('app_data');
+          data = await kv.get('app_data');
           if (data && typeof data === 'string') {
             try {
               data = JSON.parse(data);
@@ -88,14 +113,25 @@ export async function onRequest(context: { request: Request; env: Env }) {
 
       const body = await request.json();
 
-      if (!env.CLOUDNAV_KV) {
-        return new Response(JSON.stringify({ error: 'KV storage not available' }), {
+      const kv = getKV(env);
+      if (!kv) {
+        // 临时调试信息 - 帮助诊断 KV 绑定问题
+        return new Response(JSON.stringify({
+          error: 'KV storage not available',
+          debug: {
+            hasCloudnavKV: !!env.CLOUDNAV_KV,
+            envKeys: Object.keys(env),
+            kvType: typeof env.CLOUDNAV_KV,
+            kvValue: env.CLOUDNAV_KV ? 'exists' : 'null/undefined',
+            contextKeys: Object.keys(context)
+          }
+        }), {
           status: 500,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
-      await env.CLOUDNAV_KV.put('app_data', JSON.stringify(body));
+      await kv.put('app_data', JSON.stringify(body));
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
