@@ -15,14 +15,11 @@ const corsHeaders = {
 export async function onRequest(context: { request: Request; env: Env }) {
   const { request, env } = context;
 
-  // Handle OPTIONS
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  // Handle POST
   if (request.method === 'POST') {
-    // 1. Auth Check
     const providedPassword = request.headers.get('x-auth-password');
     const serverPassword = env.PASSWORD;
 
@@ -36,23 +33,19 @@ export async function onRequest(context: { request: Request; env: Env }) {
     try {
       const newLinkData = await request.json() as any;
 
-      // Validate input
       if (!newLinkData.title || !newLinkData.url) {
           return new Response(JSON.stringify({ error: 'Missing title or url' }), { status: 400, headers: corsHeaders });
       }
 
-      // 2. Fetch current data from KV
       let currentData = { links: [], categories: [] };
 
       if (env.CLOUDNAV_KV) {
         try {
-          // 尝试 EdgeOne 方式：直接获取 JSON
           currentData = await env.CLOUDNAV_KV.get('app_data', 'json');
           if (!currentData) {
             currentData = { links: [], categories: [] };
           }
         } catch (e) {
-          // 回退到 Cloudflare 方式
           const currentDataStr = await env.CLOUDNAV_KV.get('app_data');
           if (currentDataStr) {
             currentData = JSON.parse(currentDataStr);
@@ -60,11 +53,9 @@ export async function onRequest(context: { request: Request; env: Env }) {
         }
       }
 
-      // 3. Determine Category
       let targetCatId = '';
       let targetCatName = '';
 
-      // 3a. Check for explicit categoryId from request
       if (newLinkData.categoryId) {
           const explicitCat = currentData.categories.find((c: any) => c.id === newLinkData.categoryId);
           if (explicitCat) {
@@ -73,11 +64,9 @@ export async function onRequest(context: { request: Request; env: Env }) {
           }
       }
 
-      // 3b. Fallback: Auto-detect if no explicit category or explicit one not found
       if (!targetCatId) {
           if (currentData.categories && currentData.categories.length > 0) {
-              // Try to find specific keywords
-              const keywords = ['收集', '未分类', 'inbox', 'temp', 'later'];
+              const keywords = ['inbox', 'temp', 'later', 'collect'];
               const match = currentData.categories.find((c: any) =>
                   keywords.some(k => c.name.toLowerCase().includes(k))
               );
@@ -86,7 +75,6 @@ export async function onRequest(context: { request: Request; env: Env }) {
                   targetCatId = match.id;
                   targetCatName = match.name;
               } else {
-                  // Fallback to 'common' if exists, else first category
                   const common = currentData.categories.find((c: any) => c.id === 'common');
                   if (common) {
                       targetCatId = 'common';
@@ -97,13 +85,11 @@ export async function onRequest(context: { request: Request; env: Env }) {
                   }
               }
           } else {
-              // No categories exist at all
               targetCatId = 'common';
-              targetCatName = '默认';
+              targetCatName = 'Default';
           }
       }
 
-      // 4. Create new link object
       const newLink = {
           id: Date.now().toString(),
           title: newLinkData.title,
@@ -112,14 +98,12 @@ export async function onRequest(context: { request: Request; env: Env }) {
           categoryId: targetCatId,
           createdAt: Date.now(),
           pinned: false,
-          icon: newLinkData.icon || undefined // 允许保存传入的 icon
+          icon: newLinkData.icon || undefined
       };
 
-      // 5. Append
       // @ts-ignore
       currentData.links = [newLink, ...(currentData.links || [])];
 
-      // 6. Save back to KV
       if (env.CLOUDNAV_KV) {
           await env.CLOUDNAV_KV.put('app_data', JSON.stringify(currentData));
       }
@@ -133,7 +117,6 @@ export async function onRequest(context: { request: Request; env: Env }) {
       });
 
     } catch (err: any) {
-      console.error('Failed to add link:', err);
       return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
