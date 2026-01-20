@@ -120,6 +120,7 @@ function App() {
   );
 
   const [qrCodeLink, setQrCodeLink] = useState<LinkItem | null>(null);
+  const [hoverQrCode, setHoverQrCode] = useState<{ linkId: string, x: number, y: number } | null>(null);
 
   const [unlockedCategoryIds, setUnlockedCategoryIds] = useState<Set<string>>(new Set());
 
@@ -838,17 +839,17 @@ function App() {
 
   const renderLinkCard = (link: LinkItem) => {
       const iconDisplay = link.icon ? (
-         <img 
-            src={link.icon} 
-            alt="" 
-            className="w-5 h-5 object-contain" 
+         <img
+            src={link.icon}
+            alt=""
+            className="w-5 h-5 object-contain"
             onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 e.currentTarget.parentElement!.innerText = link.title.charAt(0);
             }}
          />
       ) : link.title.charAt(0);
-      
+
       const isSimple = siteSettings.cardStyle === 'simple';
 
       return (
@@ -871,7 +872,7 @@ function App() {
             className={`group relative flex flex-col ${isSimple ? 'p-2' : 'p-3'} bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm hover:shadow-lg hover:border-blue-200 dark:hover:border-slate-600 hover:-translate-y-0.5 transition-all duration-200 hover:bg-blue-50 dark:hover:bg-slate-750`}
             title={link.description || link.url}
         >
-            <div className={`flex items-center gap-3 ${isSimple ? '' : 'mb-1.5'} pr-6`}>
+            <div className={`flex items-center gap-3 ${isSimple ? '' : 'mb-1.5'} pr-8`}>
                 <div className={`${isSimple ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'} rounded-lg bg-slate-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold uppercase shrink-0 overflow-hidden`}>
                     {iconDisplay}
                 </div>
@@ -884,6 +885,20 @@ function App() {
                     {link.description || <span className="opacity-0">.</span>}
                 </div>
             )}
+            <button
+                className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoverQrCode({
+                        linkId: link.id,
+                        x: rect.left - 20,
+                        y: rect.bottom + 10
+                    });
+                }}
+                onMouseLeave={() => setHoverQrCode(null)}
+            >
+                <QrCode size={14} />
+            </button>
         </a>
       );
   };
@@ -907,14 +922,9 @@ function App() {
              <button onClick={() => { setContextMenu(null); if(!authToken) setIsAuthOpen(true); else { setIsSortingLinks(contextMenu.link!.categoryId); }}} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors text-left">
                  <Move size={16} className="text-slate-400"/> <span>排序</span>
              </button>
-             <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2"/>
              <button onClick={() => { handleCopyLink(contextMenu.link!.url); setContextMenu(null); }} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors text-left">
                  <Copy size={16} className="text-slate-400"/> <span>复制链接</span>
              </button>
-             <button onClick={() => { setQrCodeLink(contextMenu.link); setContextMenu(null); }} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors text-left">
-                 <QrCode size={16} className="text-slate-400"/> <span>显示二维码</span>
-             </button>
-             <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2"/>
              <button onClick={() => { setContextMenu(null); if(!authToken) setIsAuthOpen(true); else { setEditingLink(contextMenu.link!); setIsModalOpen(true); }}} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors text-left">
                  <Edit2 size={16} className="text-slate-400"/> <span>编辑链接</span>
              </button>
@@ -928,15 +938,36 @@ function App() {
           </div>
       )}
 
+      {/* Hover QR Code Preview */}
+      {hoverQrCode && (() => {
+          const link = links.find(l => l.id === hoverQrCode.linkId);
+          if (!link) return null;
+          return (
+              <div
+                  className="fixed z-[9999] bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-3 border border-slate-200 dark:border-slate-600 animate-in fade-in zoom-in duration-150"
+                  style={{ top: `${hoverQrCode.y}px`, left: `${hoverQrCode.x}px` }}
+                  onMouseEnter={() => {}}
+                  onMouseLeave={() => setHoverQrCode(null)}
+              >
+                  <img
+                      src={`https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(link.url)}`}
+                      alt="QR Code"
+                      className="w-32 h-32"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-[140px] truncate">{link.url}</p>
+              </div>
+          );
+      })()}
+
       {/* QR Code Modal */}
       {qrCodeLink && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setQrCodeLink(null)}>
               <div className="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
                   <h3 className="font-bold text-lg text-slate-800">{qrCodeLink.title}</h3>
                   <div className="p-2 border border-slate-200 rounded-lg">
-                    <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrCodeLink.url)}`} 
-                        alt="QR Code" 
+                    <img
+                        src={`https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(qrCodeLink.url)}`}
+                        alt="QR Code"
                         className="w-48 h-48"
                     />
                   </div>

@@ -864,7 +864,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabs = [
     { id: 'site', label: '网站设置', icon: LayoutTemplate },
     { id: 'ai', label: 'AI 设置', icon: Bot },
-    { id: 'links', label: '链接管理', icon: List },
     { id: 'tools', label: '扩展工具', icon: Wrench },
   ];
 
