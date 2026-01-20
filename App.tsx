@@ -913,14 +913,29 @@ function App() {
     <>
       {/* Copy Success Toast */}
       {copySuccess.show && (
-          <div 
+          <div
             key={`copy-toast-${copySuccess.title}`}
-            className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] bg-white text-blue-600 px-6 py-3 rounded-full shadow-lg animate-in fade-in slide-in-from-top-4 duration-300 flex items-center gap-3"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-white text-blue-600 px-6 py-3 rounded-full shadow-lg flex items-center gap-3"
+            style={{
+              animation: 'slideInFromTop 0.3s ease-out forwards'
+            }}
           >
               <CheckCircle2 size={20} />
               <span>您已成功复制 {copySuccess.title} 的网址</span>
           </div>
       )}
+      <style>{`
+        @keyframes slideInFromTop {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -100%);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+      `}</style>
 
       <div className="flex h-screen overflow-hidden text-slate-900 dark:text-slate-50">
 
