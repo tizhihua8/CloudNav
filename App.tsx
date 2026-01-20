@@ -884,7 +884,7 @@ function App() {
             {/* Blurred icon background on hover */}
             {link.icon && (
                 <div
-                    className="icon-bg absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-[0.045] pointer-events-none group-hover:transition-opacity group-hover:duration-[300ms]"
+                    className="icon-bg absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-[0.08] pointer-events-none group-hover:transition-opacity group-hover:duration-[300ms]"
                     style={{
                         '--pointer-x': -10,
                         '--pointer-y': -10,
@@ -1211,32 +1211,34 @@ function App() {
         </div>
 
         <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
-            <div className="grid grid-cols-3 gap-2 mb-2">
-                <button 
-                    onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsImportModalOpen(true); }}
-                    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
-                    title="导入书签"
-                >
-                    <Upload size={14} />
-                    <span>导入</span>
-                </button>
-                <button 
-                    onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsBackupModalOpen(true); }}
-                    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
-                    title="备份与恢复"
-                >
-                    <CloudCog size={14} />
-                    <span>备份</span>
-                </button>
-                <button
-                    onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsSettingsModalOpen(true); }}
-                    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
-                    title="AI 设置"
-                >
-                    <Settings size={14} />
-                    <span>设置</span>
-                </button>
-            </div>
+            {authToken && (
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
+                        title="导入书签"
+                    >
+                        <Upload size={14} />
+                        <span>导入</span>
+                    </button>
+                    <button
+                        onClick={() => setIsBackupModalOpen(true)}
+                        className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
+                        title="备份与恢复"
+                    >
+                        <CloudCog size={14} />
+                        <span>备份</span>
+                    </button>
+                    <button
+                        onClick={() => setIsSettingsModalOpen(true)}
+                        className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 transition-all"
+                        title="AI 设置"
+                    >
+                        <Settings size={14} />
+                        <span>设置</span>
+                    </button>
+                </div>
+            )}
             
             <div className="flex items-center justify-between text-xs px-2 mt-2">
                <div className="flex items-center gap-1 text-slate-400">
@@ -1419,9 +1421,9 @@ function App() {
                 </div>
 
                 {/* Settings Gear (Visible only for External, outside search box) */}
-                {searchMode === 'external' && (
+                {searchMode === 'external' && authToken && (
                     <button
-                        onClick={() => { if(!authToken) setIsAuthOpen(true); else setIsSearchSettingsOpen(true); }}
+                        onClick={() => setIsSearchSettingsOpen(true)}
                         className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors animate-in fade-in slide-in-from-left-2 duration-200"
                         title="管理搜索引擎"
                     >
