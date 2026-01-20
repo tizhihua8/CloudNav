@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# EdgeOne configuration (keep sensitive data out of repo)
+.edgeone.env
+EDGEONE_KV_TOKEN
+

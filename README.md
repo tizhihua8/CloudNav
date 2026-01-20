@@ -72,9 +72,23 @@
 
 ## 🚀 部署教程 (免费)
 
-本应用完全基于 **Cloudflare Pages** + **KV** 构建，无需服务器，永久免费。
+本应用完全支持 **Cloudflare Pages** 和 **EdgeOne Pages** 两种部署方式，无需服务器，永久免费。
 
 > **📥 [点击下载完整图文教程 (.docx)](图文教程.docx)**
+> **📖 [查看 EdgeOne Pages 部署指南](EDGEONE_DEPLOY.md)**
+
+---
+
+### 🌐 选择部署平台
+
+| 平台 | 优点 | 推荐场景 |
+|------|------|----------|
+| **Cloudflare Pages** | 全球节点最多、KV 原生支持、社区活跃 | 国际用户、追求最佳性能 |
+| **EdgeOne Pages** | 国内访问速度快、腾讯云服务、中文文档 | 国内用户、需要稳定国内访问 |
+
+---
+
+### 📋 简明部署步骤 (Cloudflare Pages)
 
 ### 📋 简明部署步骤 (适合有经验用户)
 
@@ -89,6 +103,26 @@
     *   进入 Pages 项目设置 -> 绑定 (Bindings) -> 添加 KV 命名空间 -> 变量名填 `CLOUDNAV_KV`，值选择刚才创建的 `CLOUDNAV_DB`。
     *   进入 环境变量 (Environment variables) -> 添加变量 `PASSWORD`，值为您的访问密码。
 6.  **部署**: 重新部署项目即可。
+
+---
+
+### 📋 EdgeOne Pages 部署步骤
+
+> 如果您希望在国内获得更好的访问速度，推荐使用 EdgeOne Pages。
+
+**详细部署教程请查看**: [EDGEONE_DEPLOY.md](EDGEONE_DEPLOY.md)
+
+简要步骤：
+1. Fork 项目到您的 GitHub 仓库
+2. 登录 [EdgeOne 控制台](https://console.cloud.tencent.com/edgeone)
+3. 创建 Pages 应用，从 Git 仓库导入
+4. 配置构建设置：
+   - 框架预设：无或 Vite
+   - 构建命令：`npm run build`
+   - 输出目录：`dist`
+5. 配置环境变量 `PASSWORD`（访问密码）
+6. 根据实际情况配置 EdgeOne KV 存储
+7. 部署完成
 
 ---
 

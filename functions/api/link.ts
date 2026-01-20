@@ -1,6 +1,8 @@
 
+
 interface Env {
-  CLOUDNAV_KV: any;
+  CLOUDNAV_KV?: any;
+  EDGEONE_KV?: any;
   PASSWORD: string;
 }
 
@@ -10,6 +12,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, x-auth-password',
   'Access-Control-Max-Age': '86400',
 };
+
+import { createKVAdapter } from './_kvAdapter';
 
 export const onRequestOptions = async () => {
   return new Response(null, {
@@ -34,16 +38,17 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
 
   try {
     const newLinkData = await request.json() as any;
-    
+
     // Validate input
     if (!newLinkData.title || !newLinkData.url) {
         return new Response(JSON.stringify({ error: 'Missing title or url' }), { status: 400, headers: corsHeaders });
     }
 
-    // 2. Fetch current data from KV
-    const currentDataStr = await env.CLOUDNAV_KV.get('app_data');
+    // 2. Fetch current data from KV using adapter
+    const kvAdapter = createKVAdapter(env);
+    const currentDataStr = await kvAdapter.get('app_data');
     let currentData = { links: [], categories: [] };
-    
+
     if (currentDataStr) {
         currentData = JSON.parse(currentDataStr);
     }
@@ -66,7 +71,7 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
         if (currentData.categories && currentData.categories.length > 0) {
             // Try to find specific keywords
             const keywords = ['收集', '未分类', 'inbox', 'temp', 'later'];
-            const match = currentData.categories.find((c: any) => 
+            const match = currentData.categories.find((c: any) =>
                 keywords.some(k => c.name.toLowerCase().includes(k))
             );
 
@@ -97,7 +102,7 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
         title: newLinkData.title,
         url: newLinkData.url,
         description: newLinkData.description || '',
-        categoryId: targetCatId, 
+        categoryId: targetCatId,
         createdAt: Date.now(),
         pinned: false,
         icon: newLinkData.icon || undefined // 允许保存传入的 icon
@@ -107,18 +112,19 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
     // @ts-ignore
     currentData.links = [newLink, ...(currentData.links || [])];
 
-    // 6. Save back to KV
-    await env.CLOUDNAV_KV.put('app_data', JSON.stringify(currentData));
+    // 6. Save back to KV using adapter
+    await kvAdapter.put('app_data', JSON.stringify(currentData));
 
-    return new Response(JSON.stringify({ 
-        success: true, 
+    return new Response(JSON.stringify({
+        success: true,
         link: newLink,
-        categoryName: targetCatName 
+        categoryName: targetCatName
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
 
   } catch (err: any) {
+    console.error('Failed to add link:', err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

@@ -1,5 +1,6 @@
 interface Env {
-  CLOUDNAV_KV: any;
+  CLOUDNAV_KV?: any;
+  EDGEONE_KV?: any;
   PASSWORD: string;
 }
 
@@ -9,6 +10,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, x-auth-password',
 };
+
+import { createKVAdapter } from './_kvAdapter';
 
 // 处理 OPTIONS 请求（解决跨域预检）
 export const onRequestOptions = async () => {
@@ -22,9 +25,11 @@ export const onRequestOptions = async () => {
 export const onRequestGet = async (context: { env: Env }) => {
   try {
     const { env } = context;
-    // 从 KV 中读取数据
-    const data = await env.CLOUDNAV_KV.get('app_data');
-    
+
+    // 使用 KV 适配器获取数据
+    const kvAdapter = createKVAdapter(env);
+    const data = await kvAdapter.get('app_data');
+
     if (!data) {
       // 如果没有数据，返回空结构
       return new Response(JSON.stringify({ links: [], categories: [] }), {
@@ -36,7 +41,8 @@ export const onRequestGet = async (context: { env: Env }) => {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'Failed to fetch data' }), {
+    console.error('Failed to fetch data:', err);
+    return new Response(JSON.stringify({ error: 'Failed to fetch data', details: err instanceof Error ? err.message : 'Unknown error' }), {
       status: 500,
       headers: corsHeaders,
     });
@@ -52,7 +58,7 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
   const serverPassword = env.PASSWORD;
 
   if (!serverPassword) {
-    return new Response(JSON.stringify({ error: 'Server misconfigured: PASSWORD not set' }), { 
+    return new Response(JSON.stringify({ error: 'Server misconfigured: PASSWORD not set' }),
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
@@ -68,14 +74,17 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
   // 2. 保存数据
   try {
     const body = await request.json();
-    // 将数据写入 KV
-    await env.CLOUDNAV_KV.put('app_data', JSON.stringify(body));
+
+    // 使用 KV 适配器保存数据
+    const kvAdapter = createKVAdapter(env);
+    await kvAdapter.put('app_data', JSON.stringify(body));
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'Failed to save data' }), {
+    console.error('Failed to save data:', err);
+    return new Response(JSON.stringify({ error: 'Failed to save data', details: err instanceof Error ? err.message : 'Unknown error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
