@@ -884,7 +884,7 @@ function App() {
             {/* Blurred icon background on hover */}
             {link.icon && (
                 <div
-                    className="icon-bg absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-[0.08] pointer-events-none group-hover:transition-opacity group-hover:duration-[300ms]"
+                    className="icon-bg absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-[0.05] pointer-events-none group-hover:transition-opacity group-hover:duration-[300ms]"
                     style={{
                         '--pointer-x': -10,
                         '--pointer-y': -10,
@@ -934,8 +934,9 @@ function App() {
              <button onClick={() => { setQrCodeLink(contextMenu.link!); setContextMenu(null); }} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors text-left">
                  <QrCode size={16} className="text-slate-400"/> <span>二维码</span>
              </button>
-             <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2"/>
              {authToken && (
+                 <>
+                    <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2"/>
                  <>
                     <button onClick={() => { setContextMenu(null); setDefaultCategoryId(contextMenu.link!.categoryId); setEditingLink(undefined); setIsModalOpen(true); }} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors text-left">
                         <Plus size={16} className="text-slate-400"/> <span>添加链接</span>
@@ -1435,15 +1436,15 @@ function App() {
 
           <div className="flex items-center gap-2">
             <div className="hidden md:flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1 mr-2">
-                <button 
-                    onClick={() => authToken && updateData(links, categories, { ...siteSettings, cardStyle: 'simple' })}
+                <button
+                    onClick={() => updateData(links, categories, { ...siteSettings, cardStyle: 'simple' })}
                     title="简约模式"
                     className={`p-1.5 rounded transition-all ${siteSettings.cardStyle === 'simple' ? 'bg-white dark:bg-slate-600 shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                     <LayoutGrid size={16} />
                 </button>
-                <button 
-                    onClick={() => authToken && updateData(links, categories, { ...siteSettings, cardStyle: 'detailed' })}
+                <button
+                    onClick={() => updateData(links, categories, { ...siteSettings, cardStyle: 'detailed' })}
                     title="详情模式"
                     className={`p-1.5 rounded transition-all ${siteSettings.cardStyle === 'detailed' ? 'bg-white dark:bg-slate-600 shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
                 >
